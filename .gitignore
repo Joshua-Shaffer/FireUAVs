@@ -70,3 +70,5 @@ ctrls/Goal9_6/*.py
 ctrls/Goal9_7/*.py
 ctrls/Goal9_8/*.py
 ctrls/Goal9_9/*.py
+*.pyc
+ctrls/*/*.pyc
