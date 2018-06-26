@@ -13,8 +13,8 @@ class Params(object):
         self.height = 10
         self.partition_size = 45  # meters
         self.base_location = (2, 2)
-        self.Dc_coefficient = 0.3
-        self.Cs_coefficient = 1 - self.Dc_coefficient
+        self.Dc_coeff = 0.3
+        self.Cs_coeff = 1 - self.Dc_coeff
         self.switch_penalty = 10
         self.min_fuel_lim = 300
         self.UAV_speed = 15  # m/s

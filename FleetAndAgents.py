@@ -6,7 +6,7 @@ hold the top-level synthesized controllers. Also need to translate Estefany's al
 to python
 '''
 import os, imp, csv, re, math, numpy
-# from Estefany_module import allocation_function
+from Allocation import allocation_function
 from WaterControl_controller import TulipStrategy
 from random import uniform
 
@@ -99,8 +99,9 @@ class Fleet(object):
         return
 
     def allocate(self, env, params):
-        for i in self.agents:
-            self.agents[i].goal = [6.0, 8.0, math.pi * 3.0 / 2.0]
+        allocation_function(self, params, env)
+        #for i in self.agents:
+        #    self.agents[i].goal = [6.0, 8.0, math.pi * 3.0 / 2.0]
 
     # Used for management of all controllers attached to the agents
     def update_ctrls(self, env, time, params):

@@ -296,17 +296,27 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
             sys_auto.transitions.add_comb({init}, {init}, sys_actions="Stop")
             sys_auto.transitions.add_comb({init}, {init}, sys_actions="Go")
 
+    check_hori = None
+    if w_part[current_horizon - 1] is None:
+        check_hori = None
+    else:
+        check_hori = None
+        for ct in w_part[current_horizon - 1]:
+            if ct is not None:
+                if 'Pos' + str(ct[0]) + '_' + str(ct[1]) + 'Ori' + str(ct[2]) not in phi_states:
+                    check_hori = True
+
     # Begin generating the specifications!!
     # Create the additional environmental variables, including signal for w region next to goal
     env_auto_vars = {'StopSignal', 'Fire'}
-    if current_horizon == 1:
+    if current_horizon == 1 or check_hori is None:
         env_auto_vars |= {'SyncSignal'}
 
     # Create the environment specifications, including progress related to sync signal next to goal
     env_auto_safe = set()
     env_auto_init = {'!StopSignal', '!Fire'}
     env_auto_prog = {'!StopSignal', '!Fire'}
-    if current_horizon == 1:
+    if current_horizon == 1 or check_hori is None:
         env_auto_prog |= {'SyncSignal'}
 
     # System variables and safety specification empty sets
@@ -358,7 +368,8 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
 
         # Create the progress statements and synthesize. Progress statements differ depending on current horizon
         # For horizon W1
-        if current_horizon == 1:
+
+        if current_horizon == 1 or check_hori is None:
 
             # This section is the 'sync' version of specs, which is just the normal "correct" version
             print('Sync synthesis for ' + current_state)
@@ -479,11 +490,10 @@ def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x,
         return
     if (x_goal_loc, y_goal_loc) in obs_loc:
         return
-    if x_goal_loc != 6 or y_goal_loc != 8:
-        return
     # Use this to force continuation from last goal synthesized
-    #if x_goal_loc < 5 or y_goal_loc < 8:
-    #    return
+    if not (x_goal_loc > 2 or (x_goal_loc == 2 and y_goal_loc > 9)):
+        return
+
 
     # Construct the finite automata for each section surrounding goal,
     # These are at max 4 on each diagonal for the transition space, while

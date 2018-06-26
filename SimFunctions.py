@@ -50,7 +50,6 @@ def simulation_loop(fleet, env, Params, visualize=False):
                               (Params.HEIGHT) * (row), Params.WIDTH,
                               Params.HEIGHT], Params.MARGIN_HALF)
 
-            # TODO rewrite this to take in position and orientation of an agent, then display based on such by drawing triangle centered on position and oriented by shown value
             for i in fleet.agents:
                 #pygame.draw.circle(screen, (94, 154, 249), fleet.agents[i].display_loc(Params), 10)
                 pygame.draw.polygon(screen, (94, 154, 249), fleet.agents[i].display_loc(Params))
@@ -63,7 +62,6 @@ def simulation_loop(fleet, env, Params, visualize=False):
             # Go ahead and update the screen with what we've drawn.
             pygame.display.flip()
 
-        #continue_sim = False  # debugger code TODO remove
         r = 2
         if continue_sim:
             #print('Current time:')
