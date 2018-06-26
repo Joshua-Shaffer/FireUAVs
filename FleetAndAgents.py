@@ -105,23 +105,35 @@ class Fleet(object):
 
     # Used for management of all controllers attached to the agents
     def update_ctrls(self, env, time, params):
+        '''if time > 91:
+            input('wait...')'''
         for i in self.agents:
-            trigger1 = True  # Temporary TODO self.agents[i].update_objective_state(somethingfromallocation)
-            if trigger1 is not True:
-                region = self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal)
+            trigger1 = True if self.agents[i].goal != self.agents[i].prev_goal else False
+            if trigger1 is False:
+                region = self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal, time)
                 #print(region)
                 trigger2 = False if region == self.agents[i].region else True
                 self.agents[i].update_region(region)
             else:
                 # print(self.agents[i].state_belief)
-                self.agents[i].update_region(self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal))
+                self.agents[i].update_region(self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal, time))
                 #print(self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal))
                 trigger2 = True
+            #if time > 21:
+                #print(self.agents[i].region)
+                #print(i)
+                #print(self.agents[i].state_belief)
+                #print(self.agents[i].state_truth)
+                #print(self.agents[i].goal)
+                #print(trigger1)
+                #print(trigger2)
+
+                #input('wait...')
 
             if trigger1 is True or trigger2 is True:
                 #print(self.agents[i].state_belief)
                 #print(self.agents[i].goal)
-                hand = self.directory_interpreter(self.agents[i].state_belief, self.agents[i].goal)
+                hand = self.directory_interpreter(self.agents[i].state_belief, self.agents[i].goal, time)
                 self.agents[i].ctrler = hand.TulipStrategy()
                 #print(self.agents[i].region)
                 if self.agents[i].region == 1:
@@ -196,7 +208,7 @@ class Fleet(object):
             # print(self.agents[i].control_inputs)
 
             base = self.agents[i].base
-            goal = self.agents[i].goal_ind
+            goal = self.agents[i].goal_ind if base == 0 else 0
             # 4. Update water controller
             wtr_out_prev = self.agents[i].wtr_output
             self.agents[i].wtr_output = self.agents[i].wtr_ctrler.move(base, self.agents[i].sync_signal, goal)
@@ -205,10 +217,13 @@ class Fleet(object):
             if wtr_out_prev["loc"] != self.agents[i].wtr_output["loc"]:
                 val2 = re.findall('\d+', wtr_out_prev["loc"])
                 env.cells[
-                    (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].cell_agent_update(
-                    int(val[0]) - int(val2[0]))
+                    (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum = \
+                    env.cells[
+                        (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum + \
+                    (float(val2[0]) - float(val[0]))/100.0*params.max_water_capacity
 
             self.agents[i].water_level = int(val[0])  # not necessary I think
+            #print(self.agents[i].water_level)
 
             # update goal index and base index to agent's belief (done here because we are assuming the UAV makes it,
             # and that the controller move was enacted correctly
@@ -237,7 +252,7 @@ class Fleet(object):
             self.agents[i].state_belief = [self.agents[i].state_truth[0], self.agents[i].state_truth[1], state2]
 
     # returns the module for accessing the class (use return.myClass())
-    def directory_interpreter(self, state, goal):
+    def directory_interpreter(self, state, goal, time):
         if state[2] < 0.0:
             state2 = math.fmod(state[2], 2.0 * math.pi)
             state2 = 2.0 * math.pi + state2
@@ -258,16 +273,16 @@ class Fleet(object):
         file_name2 = 'G' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + 'Pos' + str(int(round(state[0]))) \
                      + '_' + str(int(round(state[1]))) + 'Ori' + ori + 'NB.py'
         top_directory = 'Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1])))
-
-        #print('ctrls/' + top_directory + '/' + file_name)
-        #print(os.path.exists('ctrls/' + top_directory + '/' + file_name))
+        #if time > 21:
+        #    print('ctrls/' + top_directory + '/' + file_name)
+        #    print(os.path.exists('ctrls/' + top_directory + '/' + file_name))
         if os.path.exists('ctrls/' + top_directory + '/' + file_name2):
             return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name2)
         else:
             return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name)
 
     # return region associated with goal
-    def region_interpreter(self, state, goal):
+    def region_interpreter(self, state, goal, time):
         if state[2] < 0.0:
             state2 = math.fmod(state[2], 2.0 * math.pi)
             state2 = 2.0 * math.pi + state2
@@ -283,10 +298,13 @@ class Fleet(object):
         else:
             ori = '3'
 
-        file_name = 'Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
+        file_name = 'W_partitions/Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
         # print(file_name)
         state_name = 'Pos' + str(int(round(state[0]))) + '_' + str(int(round(state[1]))) + 'Ori' + ori
         # print(state_name)
+        #if time > 21:
+        #    print(file_name)
+        #    print(state_name)
         with open(file_name, 'rb') as f:
             reader = csv.reader(f)
             listy = list(reader)

@@ -19,7 +19,8 @@ def allocation_function(fleet, params, env):
 
     Nassign = 0
     no_agents = len(locs)
-    if fires is None:
+    #print(fires)
+    if fires == []:
         return
 
     maxk = math.ceil((len(fires)+1)/2) # Or maxk = len(fires), if more clusters are desired
@@ -86,6 +87,7 @@ def allocation_function(fleet, params, env):
         fires_selected = list()
         num_UAVs = len(assigned_UAVs)
         assigned_fireLocs = np.where(F == centroid_id)[0]
+        #print(assigned_fireLocs)
 
         # Assign UAVs to fires in cluster centroid_id
         for l in range(num_UAVs):
@@ -94,6 +96,8 @@ def allocation_function(fleet, params, env):
 
             if fleet.agents[UAV_name].water_level == 0:
                 fleet.agents[UAV_name].update_objective_state(params.base_location)
+                fleet.agents[UAV_name].sync_signal = 1
+                continue
 
             min_cost = 10000
 
@@ -121,13 +125,18 @@ def allocation_function(fleet, params, env):
                         distance_to_goal = (x2-gx) ** 2 + (y2-gy) ** 2
                         cost = cost + params.switch_penalty*distance_to_goal
 
+                    #print('if state 1')
                     if (min_cost > cost):
                         min_cost = cost
                         chosen_fire = fire_idx
-                        fire_ind = k         
+                        fire_ind = k
+                        #print(fire_ind)
                 else:
+                    #print('if state 2')
                     if (len(assigned_fireLocs) < 2):
+                        #print('if state 3')
                         chosen_fire = fire_idx
+                        fire_ind = k
             
             fires_selected.append(fireLocs[chosen_fire]) 
             
@@ -144,6 +153,7 @@ def allocation_function(fleet, params, env):
                     fleet.agents[UAV_name].update_objective_state(fireLocs[chosen_fire])
                     fleet.agents[UAV_name].sync_signal = 1  # TODO will be changed eventually
                     # Remove fire from array
+                    #print(fire_ind)
                     assigned_fireLocs = np.delete(assigned_fireLocs, fire_ind, 0)
 
 

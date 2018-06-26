@@ -36,7 +36,7 @@ env = Env()
 # Populate the environment initial conditions
 for i in range(1, params.width+1):
     for j in range(1, params.height+1):
-        Water_Accum = 0
+        Water_Accum = 0.0
 
         if (i, j) in obs:
             Obstacle = 1

@@ -491,7 +491,7 @@ def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x,
     if (x_goal_loc, y_goal_loc) in obs_loc:
         return
     # Use this to force continuation from last goal synthesized
-    if not (x_goal_loc > 2 or (x_goal_loc == 2 and y_goal_loc > 9)):
+    if not (x_goal_loc == 2 and y_goal_loc == 2):
         return
 
 
@@ -515,15 +515,15 @@ def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x,
                 create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc,
                                              w_part, transition_part, dimension_x, dimension_y)
                 string_ext = list()
-                #print(w_part[current_horizon])
                 for item in w_part[current_horizon]:
-                    if item is None:
+                    if item is None or 'Pos' + str(item[0]) + '_' + str(item[1]) + 'Ori' + str(item[2]) in phi_states:
                         continue
                     str_add = 'Pos' + str(item[0]) + '_' + str(item[1]) + 'Ori' + str(item[2])
                     #input('hello')
                     string_ext.append(str_add)
                     #print(string_ext)
-                writer.writerow(string_ext)
+                if (string_ext != []):
+                    writer.writerow(string_ext)
 
 
 

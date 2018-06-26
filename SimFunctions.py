@@ -74,11 +74,11 @@ def simulation_loop(fleet, env, Params, visualize=False):
                 #for i in fleet.agents:
                 #    print(fleet.agents[i].state_belief)
                 #input('Stop...')
-
+                print(t)
                 fleet.allocate(env, Params)
                 fleet.update_ctrls(env, t, Params)
                 env.update_cells(Params, Params.update_step)
-                env.update_cells_agent_action(Params, fleet)
+                env.update_cells_agent_action(Params)
 
                 #input('slow down man')
 
@@ -96,5 +96,5 @@ def simulation_loop(fleet, env, Params, visualize=False):
                 #input('wait...')
 
             t = t + Params.sim_throttle
-            print(t)
+
     return 'No results yet bud'

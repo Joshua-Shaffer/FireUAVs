@@ -2,7 +2,7 @@
 These two classes contain the environment as a whole and all individual cells in the environment. The update rules
 regarding the cells still need to be added from Matlab code
 '''
-
+import math
 
 class Env(object):
     def __init__(self):
@@ -63,15 +63,36 @@ class Env(object):
                         self.cells[r].firetime = 0.0
                         self.cells[r].fireupdate = params.fire_update_times[self.cells[r].fire]
 
-    def update_cells_agent_action(self, params, fleet):
+    def update_cells_agent_action(self, params):
         for i in self.cells:
-            #self.cells[i].cell_agent_update(fleet, params)
-            l = 1
+            if self.cells[i].fire > 0:
+                print(self.cells[i].water_accum_tot)
+                print(params.ext_vol[self.cells[i].fire])
+                print(self.cells[i].water_accum)
+                print((math.pow(0.6 + self.cells[i].water_accum/params.max_water_capacity, 2)))
+
+            if self.cells[i].water_accum > 0.0:
+                self.cells[i].water_accum_tot = self.cells[i].water_accum_tot + \
+                    self.cells[i].water_accum * (math.pow(0.6 + self.cells[i].water_accum/params.max_water_capacity, 2))
+                self.cells[i].water_accum = 0.0
+
+
+            if self.cells[i].water_accum_tot >= params.ext_vol[self.cells[i].fire] and self.cells[i].update_cells is False:
+                self.cells[i].fire = 0
+                self.cells[i].firetime = 0.0
+                self.cells[i].fireupdate = params.fire_update_times[self.cells[i].fire]
+                self.cells[i].ext = 1
+                self.cells[i].water_accum_tot = 0.0
+            elif self.cells[i].update_cells is True:
+                self.cells[i].water_accum_tot = 0.0
+
+
 
 
 class Cell(object):
     def __init__(self, params, obs, fuel, fire, fireupdate, water_accum):
         self.water_accum = water_accum
+        self.water_accum_tot = 0.0
         self.obstacle = obs
         self.fuel = fuel
         self.fire = fire

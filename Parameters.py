@@ -19,10 +19,10 @@ class Params(object):
         self.min_fuel_lim = 300
         self.UAV_speed = 15  # m/s
         self.max_water_capacity = 50  # L
-        self.ext_vol = np.array([1.2, 0.95, 0.7])  # L
+        self.ext_vol = np.array([0.0, 0.7, 0.95, 1.2])  # L
         self.ext_vol = self.ext_vol * self.partition_size * self.partition_size / 4.5
-        self.burn_times = np.array([1, 1, 1])   #np.array([1 / 0.045, 1 / 0.040, 1 / 0.035])  # L
-        self.burn_times = self.burn_times * 10.0  #self.burn_times = self.burn_times * self.partition_size
+        self.burn_times = np.array([1 / 0.035, 1 / 0.040, 1 / 0.045])  # L#np.array([1, 1, 1])
+        self.burn_times = self.burn_times * self.partition_size / 3.0 #self.burn_times * 10.0
         self.stop_fail = 0.5
         self.update_step = 1.0 #self.partition_size / self.UAV_speed  # temporary for paper purposes
         self.time_step = self.update_step / 10.0
