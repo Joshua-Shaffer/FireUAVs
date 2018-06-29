@@ -11,8 +11,7 @@ from __future__ import print_function
 import logging
 import time
 
-from tulip import transys, spec, synth
-from tulip import dumpsmach
+from tulip import transys, spec, synth, dumpsmach
 import csv
 
 # @import_section_end@
@@ -106,6 +105,8 @@ obstacle_location.append((8, 5))
 obstacle_location.append((8, 6))
 obstacle_location.append((8, 7))
 
+BASE = (2, 2)
+
 '''
 Function Name: create_spec_space
 Purpose: For the given goal location, generate the finite horizons (w regions) and the corresponding transition regions 
@@ -142,21 +143,33 @@ def create_spec_space(x_goal_loc, y_goal_loc, w_part, transition_part):
                 if (False == ((abs(x) + abs(y) <= 3 * (w_count - 1)) or
                               (abs(x) + abs(y) > 3 * w_count) or (x_goal_loc + x > 10) or
                               (x_goal_loc + x < 1) or (y_goal_loc + y > 10) or (y_goal_loc + y < 1))):
-                    trip_counter = 1
-                    w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 1))
-                    w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 2))
-                    w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 3))
-                    w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 4))
+
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(1)) not in phi_states:
+                        w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 1))
+                        trip_counter = 1
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(2)) not in phi_states:
+                        w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 2))
+                        trip_counter = 1
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(3)) not in phi_states:
+                        w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 3))
+                        trip_counter = 1
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(4)) not in phi_states:
+                        w_part_sub.append((x + x_goal_loc, y + y_goal_loc, 4))
+                        trip_counter = 1
 
                 # This if statement is similar to the above, except that the first statement accounts for the need to
                 # include the states within the next horizon closest to the goal. This does not set trip_counter
                 if (False == ((abs(x) + abs(y) < 3 * (w_count - 1) - 1) or
                               (abs(x) + abs(y) > 3 * w_count) or (x_goal_loc + x > 10) or
                               (x_goal_loc + x < 1) or (y_goal_loc + y > 10) or (y_goal_loc + y < 1))):
-                    transition_sub.append((x + x_goal_loc, y + y_goal_loc, 1))
-                    transition_sub.append((x + x_goal_loc, y + y_goal_loc, 2))
-                    transition_sub.append((x + x_goal_loc, y + y_goal_loc, 3))
-                    transition_sub.append((x + x_goal_loc, y + y_goal_loc, 4))
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(1)) not in phi_states:
+                        transition_sub.append((x + x_goal_loc, y + y_goal_loc, 1))
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(2)) not in phi_states:
+                        transition_sub.append((x + x_goal_loc, y + y_goal_loc, 2))
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(3)) not in phi_states:
+                        transition_sub.append((x + x_goal_loc, y + y_goal_loc, 3))
+                    if ('Pos' + str(x + x_goal_loc) + '_' + str(y + y_goal_loc) + 'Ori' + str(4)) not in phi_states:
+                        transition_sub.append((x + x_goal_loc, y + y_goal_loc, 4))
 
         # Exit while loop above if trip counter was never reset
         if trip_counter == 0:
@@ -164,10 +177,14 @@ def create_spec_space(x_goal_loc, y_goal_loc, w_part, transition_part):
 
         # Add origin to w region of innermost region
         if w_count == 1:
-            w_part_sub.append((x_goal_loc, y_goal_loc, 1))
-            w_part_sub.append((x_goal_loc, y_goal_loc, 2))
-            w_part_sub.append((x_goal_loc, y_goal_loc, 3))
-            w_part_sub.append((x_goal_loc, y_goal_loc, 4))
+            if ('Pos' + str(x_goal_loc) + '_' + str(y_goal_loc) + 'Ori' + str(1)) not in phi_states:
+                w_part_sub.append((x_goal_loc, y_goal_loc, 1))
+            if ('Pos' + str(x_goal_loc) + '_' + str(y_goal_loc) + 'Ori' + str(2)) not in phi_states:
+                w_part_sub.append((x_goal_loc, y_goal_loc, 2))
+            if ('Pos' + str(x_goal_loc) + '_' + str(y_goal_loc) + 'Ori' + str(3)) not in phi_states:
+                w_part_sub.append((x_goal_loc, y_goal_loc, 3))
+            if ('Pos' + str(x_goal_loc) + '_' + str(y_goal_loc) + 'Ori' + str(4)) not in phi_states:
+                w_part_sub.append((x_goal_loc, y_goal_loc, 4))
 
         # Add the generated w regions and transition regions to the overall set, at the correct w region index
         w_part.append(w_part_sub)
@@ -193,6 +210,7 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
 
     # Don't synthesize for corner w regions (i.e. w region that's only a corner) that can't be fulfilled (... so ugly)
     #   Note: Better way of doing this would be to not add corner regions to w_part...
+    # TODO: remove this, shouldn't be necessary now
     if (w_part[current_horizon] == [(dimension_x, dimension_y, 1)] or
             w_part[current_horizon] == [(dimension_x, dimension_y, 2)] or
             w_part[current_horizon] == [(dimension_x, dimension_y, 3)] or
@@ -224,7 +242,7 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
     for locat in transition_part[current_horizon]:
         add_ap_sub = 'Pos' + str(locat[0]) + '_' + str(locat[1]) + 'Ori' + str(locat[2])
         sys_auto.states.add_from([add_ap_sub])
-        if locat[0] == 2 and locat[1] == 2:  # TODO add some global indicator of the base location
+        if locat[0] == BASE[0] and locat[1] == BASE[1]:
             sys_auto.states[add_ap_sub]['ap'] |= {'Base'}
         if locat[0] == x_goal_loc and locat[1] == y_goal_loc:
             sys_auto.states[add_ap_sub]['ap'] |= {'GoalPos'}
@@ -232,9 +250,6 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
     # Initial condition, empty set
     sys_auto_init = set()
 
-    #print(transition_part[current_horizon])
-    #print(w_part[current_horizon])
-    #input('uhmmm...')
     # NOTE: that current_horizon is 1, 2, 3, ...
     # Create all transitions through brute force method of checking existence of locations in the transition region next
     # to every starting point, dependent on the orientation. This is ran on transition region and inclusion in w region
@@ -416,7 +431,7 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
             print(synth_time)
 
             # Write controller to relevant location if it synthesized
-            filename = 'ctrls/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
+            filename = 'ctrls2/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
                        str(y_goal_loc) + current_state + '.py'  #'_W' + str(current_horizon) +
             if ctrl_final_sync is not None:
                 dumpsmach.write_python_case(filename, ctrl_final_sync)
@@ -470,12 +485,129 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
             print(synth_time)
 
             # Write controller to relevant location if it synthesized
-            filename = 'ctrls/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
+            filename = 'ctrls2/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
                        str(y_goal_loc) + current_state + '.py'  #'_W' + str(current_horizon) +
             if ctrl_inter is not None:
                 dumpsmach.write_python_case(filename, ctrl_inter)
 
 
+    # resynthesize here with multiple I.C.
+    ic_spec = 'False'
+    for idxn, locat in enumerate(w_part[current_horizon]):
+        if locat is None:
+            continue
+
+        # Create checks to see if current position is viable initial condition
+        current_state = 'Pos' + str(locat_sub[0]) + '_' + str(locat_sub[1]) + 'Ori' + str(locat_sub[2])
+        ic_spec = ic_spec + ' || ' + current_state
+        #sys_auto_init = {'(loc = "' + current_state + '")'}
+
+    sys_auto_init = {ic_spec}
+
+    if current_horizon == 1 or check_hori is None:
+
+        # This section is the 'sync' version of specs, which is just the normal "correct" version
+        print('Sync synthesis for ' + current_state)
+
+        # Start timer for synthesis
+        start_time = time.time()
+
+        # Spec just states that the sync signal implies goal position is there
+        sync_spec = '(SyncSignal)->GoalPos'
+        sys_auto_prog = {sync_spec}
+
+        # Create the GR spec for all the generated env and sys specs
+        specs_final_sync = spec.GRSpec(env_auto_vars, sys_auto_vars, env_auto_init, sys_auto_init,
+                                       env_auto_safe, sys_auto_safe, env_auto_prog, sys_auto_prog)
+
+        # Synthesizer attributes
+        specs_final_sync.moore = True
+        option = 'omega'
+        specs_final_sync.qinit = '\E \A'
+        # synthesizer should find initial system values that satisfy
+        # `env_init /\ sys_init` and work, for every environment variable
+        # initial values that satisfy `env_init`.
+
+        # SYNTHESIZE!!!
+        ctrl_final_sync = synth.synthesize(option, specs_final_sync, env=None, sys=sys_auto, ignore_sys_init=True)
+
+        # Failure results in adjustments to the horizon related to current I.C.
+        if ctrl_final_sync is None:
+            print('Failed to synthesize ' + current_state + ', moving to next w_part and transition_part')
+            w_part[current_horizon + 1].append(locat)
+            if locat not in transition_part[current_horizon + 1]:
+                transition_part[current_horizon + 1].append(locat)
+            w_part[current_horizon][idxn] = None
+            transition_part[current_horizon].remove(locat)
+
+            # if locat == (9, 8, 2):
+            #   print('here')
+            #   print(w_part[current_horizon])
+            #   input('wait...')
+
+        # Stopwatch and print
+        synth_time = time.time() - start_time
+        print(synth_time)
+
+        # Write controller to relevant location if it synthesized
+        filename = 'ctrls2/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
+                   str(y_goal_loc) + current_state + '.py'  # '_W' + str(current_horizon) +
+        if ctrl_final_sync is not None:
+            dumpsmach.write_python_case(filename, ctrl_final_sync)
+        # if locat == (9, 8, 2):
+        #    print('here')
+        #    print(w_part[current_horizon])
+        #    input('wait...')
+        # All other horizons from the first one (>= W2)
+    else:
+        print('Synthesis for ' + current_state)
+
+        # Start timer for synthesis
+        start_time = time.time()
+
+        # Generate progress to any area of transition region that aren't in the w region (inner layer)
+        spec_inter = '(('
+        for locat2 in transition_part[current_horizon]:
+            if locat2 not in w_part[current_horizon]:
+                locations = 'Pos' + str(locat2[0]) + '_' + str(locat2[1]) + 'Ori' + str(locat2[2])
+                spec_inter = spec_inter + 'loc = "' + locations + '")||('
+        # Finish tail end of progress spec (false is there to wrap up string generated by loop)
+        spec_inter = spec_inter + 'False))'
+        sys_auto_prog |= {spec_inter}
+
+        # Create the GR spec for all the generated env and sys specs
+        specs_inter = spec.GRSpec(env_auto_vars, sys_auto_vars, env_auto_init, sys_auto_init,
+                                  env_auto_safe, sys_auto_safe, env_auto_prog, sys_auto_prog)
+
+        # Synthesizer attributes
+        specs_inter.moore = True
+        option = 'omega'
+        specs_inter.qinit = '\E \A'
+        # synthesizer should find initial system values that satisfy
+        # `env_init /\ sys_init` and work, for every environment variable
+        # initial values that satisfy `env_init`.
+
+        # SYNTHESIZE!!!
+        ctrl_inter = synth.synthesize(option, specs_inter, sys=sys_auto, ignore_sys_init=True)
+
+        # Failure results in adjustments to the horizon related to current I.C.
+        if ctrl_inter is None:
+            print('Failed to synthesize ' + current_state + ', moving to next w_part and transition_part')
+            w_part[current_horizon + 1].append(locat)
+            if locat not in transition_part[current_horizon + 1]:
+                transition_part[current_horizon + 1].append(locat)
+            w_part[current_horizon][idxn] = None
+            transition_part[current_horizon].remove(locat)
+
+        # Stopwatch and print
+        synth_time = time.time() - start_time
+        print(synth_time)
+
+        # Write controller to relevant location if it synthesized
+        filename = 'ctrls2/Goal' + str(x_goal_loc) + '_' + str(y_goal_loc) + '/G' + str(x_goal_loc) + '_' + \
+                   str(y_goal_loc) + current_state + '.py'  # '_W' + str(current_horizon) +
+        if ctrl_inter is not None:
+            dumpsmach.write_python_case(filename, ctrl_inter)
 
 
 '''
@@ -492,7 +624,7 @@ def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x,
     if (x_goal_loc, y_goal_loc) in obs_loc:
         return
     # Use this to force continuation from last goal synthesized
-    if not (x_goal_loc == 2 and y_goal_loc == 2):
+    if not (x_goal_loc == 9 and y_goal_loc == 5):
         return
 
 
@@ -517,12 +649,12 @@ def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x,
                                              w_part, transition_part, dimension_x, dimension_y)
                 string_ext = list()
                 for item in w_part[current_horizon]:
-                    if item is None or 'Pos' + str(item[0]) + '_' + str(item[1]) + 'Ori' + str(item[2]) in phi_states:
+                    if item is None:
                         continue
                     str_add = 'Pos' + str(item[0]) + '_' + str(item[1]) + 'Ori' + str(item[2])
-                    #input('hello')
                     string_ext.append(str_add)
-                    #print(string_ext)
+                print(string_ext)
+                input('hello')
                 if (string_ext != []):
                     writer.writerow(string_ext)
 

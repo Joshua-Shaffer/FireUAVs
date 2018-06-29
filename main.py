@@ -28,7 +28,7 @@ fires = np.zeros((params.width, params.height))
 
 # Obstacles and fires
 obs = [(2, 8), (3, 8), (3, 7), (4, 6), (6, 5), (6, 6), (6, 7), (7, 4), (7, 5), (7, 6), (8, 4), (8, 5), (8, 6), (8, 7)]
-fires = [(3, 4), (3, 5)]
+fires = [(3, 4), (3, 5), (4, 4), (7, 2), (7, 3)]
 
 # Environment holder
 env = Env()
@@ -46,7 +46,7 @@ for i in range(1, params.width+1):
             Fuel = 6
 
         if (i, j) in fires:
-            Fires = 1
+            Fires = 2
             FireUpdate = 0
         else:
             Fires = 0

@@ -4,6 +4,7 @@ regarding the cells still need to be added from Matlab code
 '''
 import math
 
+
 class Env(object):
     def __init__(self):
         self.cells = {}
@@ -12,81 +13,63 @@ class Env(object):
         self.cells[key] = Cell(*args)
 
     def update_cells(self, params, time_step):
+
+        # First loop used for updating the growth of fire in each cell
         for i in self.cells:
+            # Fires only update in cells that aren't obstacles, aren't at the domain edge, and are greater than zero
             if (self.cells[i].fire > 0 and i[0] != 1 and i[0] != params.width and i[1] != 1 and
                     i[1] != params.height and self.cells[i].obstacle != 1 and self.cells[i].ext != 1):
+
+                # Update fire growth counter
                 self.cells[i].firetime = self.cells[i].firetime + time_step
+
+                # Grow fire if the counter reaches growth time required
                 if self.cells[i].fireupdate <= self.cells[i].firetime:
-                    fuel_drop = self.cells[i].fuel - self.cells[i].fire
-                    self.cells[i].fuel = 0 if fuel_drop < 0 else fuel_drop
-                    fire_rise = self.cells[i].fire + 1
-                    self.cells[i].fire = params.max_fire_intensity if fire_rise > params.max_fire_intensity else \
-                        fire_rise
-                    self.cells[i].water_accum = 0.0
-                    self.cells[i].firetime = 0.0
-                    self.cells[i].fireupdate = params.fire_update_times[self.cells[i].fire]
-                    self.cells[i].update_cells = True
+                    self.cells[i].set_fire_growth(params)
                 else:
                     self.cells[i].update_cells = False
 
+                # Extinguish fire if fuel dropped to zero
                 if self.cells[i].fuel == 0:
-                    self.cells[i].fire = 0
-                    self.cells[i].firetime = 0.0
-                    self.cells[i].fireupdate = params.fire_update_times[self.cells[i].fire]
-                    self.cells[i].ext = 1
+                    self.cells[i].set_fire_extinguished(params)
 
-            else:
-                self.cells[i].fire = 0
-                self.cells[i].firetime = 0.0
-                self.cells[i].update_cells = False
-
+        # Second loop is used to expand fires that have grown
         for i in self.cells:
+            # Only apply from cells that have grown in fire
             if self.cells[i].update_cells is True:
+                input('wait...')
+                # Update cells adjacent to fire that grew
                 update_keys = [(i[0] + 1, i[1]), (i[0] - 1, i[1]), (i[0], i[1] + 1), (i[0], i[1] - 1)]
-                #print(update_keys)
-                #print(i)
-                #input('wait...')
+                print(update_keys)
                 for r in update_keys:
-                    #print(r)
-                    #print(r[0] != 0.0 and r[0] != params.width and r[1] != 0.0 and
-                    #r[1] != params.height and self.cells[r].obstacle != 1 and self.cells[r].fire < self.cells[i].fire
-                    #and self.cells[r].ext == 0)
-                    #input('wait...')
+                    # Same conditions for cells that can hold fire as previous outer loop
+                    print(self.cells[r].obstacle)
+                    print(self.cells[r].fire)
+                    print(self.cells[i].fire)
+                    print(self.cells[r].ext)
+                    input('wait...')
                     if (r[0] != 1 and r[0] != params.width and r[1] != 1 and
-                    r[1] != params.height and self.cells[r].obstacle != 1 and self.cells[r].fire < self.cells[i].fire
-                    and self.cells[r].ext == 0):
-                        #input('wait...')
-                        fire_rise = self.cells[i].fire
-                        self.cells[r].fire = params.max_fire_intensity if fire_rise > params.max_fire_intensity else \
-                            fire_rise
-                        self.cells[r].water_accum = 0.0
-                        self.cells[r].firetime = 0.0
-                        self.cells[r].fireupdate = params.fire_update_times[self.cells[r].fire]
+                            r[1] != params.height and self.cells[r].obstacle != 1 and
+                            self.cells[r].fire < self.cells[i].fire and self.cells[r].ext == 0):
+                        self.cells[r].set_fire_catching(params, self.cells[i].fire)
+                        print(self.cells[r].fire)
+                        print(self.cells[r].ext)
 
     def update_cells_agent_action(self, params):
-        for i in self.cells:
-            if self.cells[i].fire > 0:
-                print(self.cells[i].water_accum_tot)
-                print(params.ext_vol[self.cells[i].fire])
-                print(self.cells[i].water_accum)
-                print((math.pow(0.6 + self.cells[i].water_accum/params.max_water_capacity, 2)))
 
+        # Extinguish all cells that accumulate more water than necessary amount for the given fire level
+        for i in self.cells:
+            # In current step update, add the water accumulated to the total amount
             if self.cells[i].water_accum > 0.0:
                 self.cells[i].water_accum_tot = self.cells[i].water_accum_tot + \
-                    self.cells[i].water_accum * (math.pow(0.6 + self.cells[i].water_accum/params.max_water_capacity, 2))
+                                                self.cells[i].water_accum * (math.pow(
+                    0.6 + self.cells[i].water_accum / params.max_water_capacity, 2))
                 self.cells[i].water_accum = 0.0
-
-
-            if self.cells[i].water_accum_tot >= params.ext_vol[self.cells[i].fire] and self.cells[i].update_cells is False:
-                self.cells[i].fire = 0
-                self.cells[i].firetime = 0.0
-                self.cells[i].fireupdate = params.fire_update_times[self.cells[i].fire]
-                self.cells[i].ext = 1
-                self.cells[i].water_accum_tot = 0.0
-            elif self.cells[i].update_cells is True:
-                self.cells[i].water_accum_tot = 0.0
-
-
+            # If total surpasses the necessary amount, extinguish the fire
+            if self.cells[i].water_accum_tot >= params.ext_vol[self.cells[i].fire] and \
+                    self.cells[i].fire > 0:
+                input('wait...')
+                self.cells[i].set_fire_extinguished(params)
 
 
 class Cell(object):
@@ -101,9 +84,42 @@ class Cell(object):
         self.ext = 0
         self.update_cells = False
 
-    def cell_env_update(self, params):
+    def __str__(self):
+        return 'Water: ' + str(self.water_accum) + ' Water total: ' + str(self.water_accum_tot) + ' Obstacle: ' +\
+               str(self.obstacle) + ' Fuel: ' + str(self.fuel) + ' Fire: ' + str(self.fire) + ' Fire time: ' +\
+               str(self.firetime) + ' Time needed to update: ' + str(self.fireupdate) + ' Extinguished: ' +\
+               str(self.ext)
 
-        return 'uhm...'  # TODO add in update rules for the cell given parameters
+    def __repr__(self):
+        return self.__str__()
 
-    def cell_agent_update(self, water_accum):
-        self.water_accum = water_accum
+    def set_fire_extinguished(self, params):
+        self.water_accum = 0.0
+        self.water_accum_tot = 0.0
+        self.fire = 0
+        self.firetime = 0.0
+        self.fireupdate = params.fire_update_times[self.fire]
+        self.ext = 1
+        self.update_cells = False
+
+    def set_fire_growth(self, params):
+        fuel_drop = self.fuel - self.fire
+        self.fuel = 0 if fuel_drop < 0 else fuel_drop
+        fire_rise = self.fire + 1
+        self.fire = params.max_fire_intensity if fire_rise > params.max_fire_intensity else \
+            fire_rise
+        self.water_accum = 0.0
+        self.water_accum_tot = 0.0
+        self.firetime = 0.0
+        self.fireupdate = params.fire_update_times[self.fire]
+        self.ext = 0
+        self.update_cells = True
+
+    def set_fire_catching(self, params, fire_source):
+        self.fire = params.max_fire_intensity if fire_source > params.max_fire_intensity else \
+            fire_source
+        self.water_accum = 0.0
+        self.water_accum_tot = 0.0
+        self.firetime = 0.0
+        self.fireupdate = params.fire_update_times[self.fire]
+        self.update_cells = False
