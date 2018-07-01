@@ -68,7 +68,7 @@ class Sim_Object(object):
         self.fleet.update_ctrls(self.env, time, self.params)
         self.env.update_cells(self.params, update_step)
         self.env.update_cells_agent_action(self.params)
-        return self.fleet.agents['UAV1'].desired_state
+        return self.fleet.agents['UAV1'].state_truth
 
     def update(self, update_step_throttle):
         self.fleet.update(self.env, self.params, update_step_throttle)

@@ -45,7 +45,7 @@ if not connection_string:
 # Connect to the Vehicle
 print('Connecting to vehicle on: %s' % connection_string)
 vehicle = connect(connection_string, wait_ready=True)
-
+origin = vehicle.location.global_frame
 # TODO: wait until vehicle is connected...
 
 def get_location_metres(original_location, dNorth, dEast):
@@ -119,9 +119,43 @@ def download_mission():
     cmds = vehicle.commands
     cmds.download()
     cmds.wait_ready()  # wait until download is complete.
+    print(cmds)
 
 
-def update_vehicle_mission(aLocation, loc, scale, prev_count):
+def goto(dNorth, dEast, gotoFunction=vehicle.simple_goto):
+    print(dNorth)
+    print(dEast)
+    currentLocation=vehicle.location.global_frame
+    print(currentLocation)
+    targetLocation=get_location_metres(currentLocation, dNorth, dEast)
+    print(targetLocation)
+    targetDistance=get_distance_metres(currentLocation, targetLocation)
+    print(targetDistance)
+    #input('wait...')
+    gotoFunction(targetLocation, groundspeed=3.0)
+
+    while vehicle.mode.name=="GUIDED": #Stop action if we are no longer in guided mode.
+        if update_visualizations() is False:
+            break;
+        remainingDistance=get_distance_metres(vehicle.location.global_frame, targetLocation)
+        print("Distance to target: ", remainingDistance)
+        if remainingDistance<=1: #Just below target, in case of undershoot.
+            print("Reached target")
+            break;
+        #time.sleep(2)
+
+
+
+def send_vehicle(aLocation, loc, scale):
+    #print(loc)
+    loc_rel = get_distance_metres_xy(aLocation, vehicle.location.global_frame, scale)
+    #print(loc_rel)
+    change_rel = (loc[0] - (loc_rel[0] + 1.0), loc[1] - (loc_rel[1] + 1.0))
+    #print(change_rel)
+    goto(change_rel[1] * scale, change_rel[0] * scale)
+
+
+def update_vehicle_mission(aLocation, loc, scale):
     """
     Adds a takeoff command and four waypoint commands to the current mission.
     The waypoints are positioned to form a square of side length 2*aSize around the specified LocationGlobal (aLocation).
@@ -132,6 +166,7 @@ def update_vehicle_mission(aLocation, loc, scale, prev_count):
 
     # Get the set of commands from the vehicle
     cmds = vehicle.commands
+    print(cmds)
     cmds.download()
     cmds.wait_ready()
 
@@ -160,12 +195,19 @@ def update_vehicle_mission(aLocation, loc, scale, prev_count):
         cmds.add(missionlist[1])
     elif len(missionlist) == 1:
         cmds.add(missionlist[0])
+    else:
+        cmds.add(
+            Command(0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0,
+                    0,
+                    0, 0, 0, point1.lat, point1.lon, 10))
     #prev_count = prev_count + 1
     cmds.add(
         Command(0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0,
                 0, 0, 0, point1.lat, point1.lon, 10))
 
     print("Upload next waypoint to vehicle")
+    #print(cmds)
+    #input('wait...')
     cmds.upload()
     # TODO wait for confirmation
 
@@ -202,6 +244,7 @@ def arm_and_takeoff(aTargetAltitude):
             break
         time.sleep(1)
 
+
 def close_all():
     print('Return to launch')
     vehicle.mode = VehicleMode("RTL")
@@ -214,7 +257,8 @@ def close_all():
     if sitl is not None:
         sitl.stop()
 
-def update_visualizations(origin):
+
+def update_visualizations():
     params = sim_object.params
     env = sim_object.env
     fleet = sim_object.fleet
@@ -248,8 +292,8 @@ def update_visualizations(origin):
         #print(fleet.agents[i].display_loc(params))
 
     # TODO: add visuals for the real-life vehicle
-    print(vehicle.location.global_frame)
-    x_loc, y_loc = get_distance_metres_xy(origin, vehicle.location.global_frame, 50.0)
+    #print(vehicle.location.global_frame)
+    x_loc, y_loc = get_distance_metres_xy(origin, vehicle.location.global_frame, 10.0)
 
     pygame.draw.circle(screen, (94, 154, 249),
                        [int(round(WIDTH * (x_loc) + WIDTH / 2)),
@@ -266,7 +310,7 @@ def project_run():
     """
     Start up the simulation and arm vehicles to starting altitude
     """
-    origin = vehicle.location.global_frame
+
     print('Priming FireUAV simulation')
 
     # From Copter 3.3 you will be able to take off using a mission item. Plane must take off using a mission item (currently).
@@ -286,13 +330,13 @@ def project_run():
     sim_update_number = 0
     way_point_number = 0
 
-    while True:
-        ans = input('Ready to start?')
-        if ans == 'No':
-            close_all()
-            return
-        else:
-            break
+    #while True:
+    #    ans = input('Ready to start?')
+    #    if ans == 'No':
+    #        close_all()
+    #        return
+    #    else:
+    #        break
 
     while True:
         real_time = time.time() - real_time_start
@@ -301,7 +345,7 @@ def project_run():
             close_all()
             break
 
-        if update_visualizations(origin) is False:
+        if update_visualizations() is False:
             close_all()
             break
 
@@ -316,12 +360,13 @@ def project_run():
         #        dif < sim_time_max_throttle * sim_time_update):
         #    trigger = 1
         #input('wait...')
-        nextwaypoint = vehicle.commands.next
-        print('Distance to waypoint (%s): %s' % (nextwaypoint, distance_to_current_waypoint()))
+        #nextwaypoint = vehicle.commands.next
+        #print('Distance to waypoint (%s): %s' % (nextwaypoint, distance_to_current_waypoint()))
+        #print(download_mission())
         #print(sim_update_number)
         #print(nextwaypoint)
-        if nextwaypoint == 1:
-            continue  # TODO: add back in
+        #if nextwaypoint == 1:
+        #    continue  # TODO: add back in
 
 
         tar = divmod(sim_time, sim_time_update)
@@ -329,8 +374,11 @@ def project_run():
                 tar[1] - sim_time_update) < 0.1 * sim_time_throttler:
             locs = sim_object.synth_update(sim_time, sim_time_update)
             sim_update_number = sim_update_number + 1
-            update_vehicle_mission(origin, locs, 50.0, nextwaypoint)
-            vehicle.mode = VehicleMode("AUTO")
+            print(locs)
+            #input('wait')
+            #update_vehicle_mission(origin, locs, 10.0)
+            send_vehicle(origin, locs, 10.0)
+            #vehicle.mode = VehicleMode("AUTO")
             print('Updated step')
 
         sim_object.update(sim_time_throttler)
