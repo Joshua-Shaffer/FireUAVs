@@ -76,3 +76,7 @@ ctrls2/*/*.pyc
 ctrls2/*/*.py
 ctrls3/*/*.py
 ctrls3/*/*.pyc
+Multi_vehicle_setup.py
+mavlink_hub.py
+Goal2_2.csv
+DroneKit_simulator_MAVProxy
