@@ -7,7 +7,7 @@ import math
 class Params(object):
 
     def __init__(self):
-        self.N = 1  # Number of UAVs
+        self.N = 2  # Number of UAVs
         self.mode_version = 'NonSync'
         self.width = 10
         self.height = 10

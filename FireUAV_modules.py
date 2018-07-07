@@ -57,7 +57,7 @@ class Sim_Object(object):
 
         # State setup
         # Starting states
-        starts = [[9.0, 9.0, 0.0], [9.0, 2.0, math.pi/2.0], [7.0, 1.0, math.pi], [9.0, 9.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
+        starts = [[2.0, 1.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
         self.fleet = Fleet(self.gra)
 
         for i in range(0, self.params.N):
@@ -68,7 +68,11 @@ class Sim_Object(object):
         self.fleet.update_ctrls(self.env, time, self.params)
         self.env.update_cells(self.params, update_step)
         self.env.update_cells_agent_action(self.params)
-        return self.fleet.agents['UAV1'].state_truth
+
+        agent_truth_state = list()
+        for i in self.fleet.agents:
+            agent_truth_state.append(self.fleet.agents[i].state_truth)
+        return agent_truth_state
 
     def update(self, update_step_throttle):
         self.fleet.update(self.env, self.params, update_step_throttle)

@@ -1,0 +1,12 @@
+#!/bin/sh
+osascript -e 'tell app "Terminal"
+    do script "cd Desktop/Native\\ Ardupilot-Vagrant/Ardupilot/ardupilot/Tools/vagrant;
+    vagrant ssh -c \"sim_vehicle.py -j 2 -C --instance 0\""
+end tell'
+osascript -e 'tell app "Terminal"
+    do script "cd Desktop/Native\\ Ardupilot-Vagrant/Ardupilot/ardupilot/Tools/vagrant;
+    vagrant ssh -c \"sim_vehicle.py -j 2 -C --instance 1\""
+end tell'
+
+cd ~/Documents/GitHub/FireUAVs
+python DroneKit_simulator
