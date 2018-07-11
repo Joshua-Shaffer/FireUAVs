@@ -9,4 +9,4 @@ osascript -e 'tell app "Terminal"
 end tell'
 
 cd ~/Documents/GitHub/FireUAVs
-python DroneKit_simulator
+python DroneKit_simulator_velCtrl.py

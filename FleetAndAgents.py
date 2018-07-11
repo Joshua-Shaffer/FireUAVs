@@ -20,6 +20,7 @@ class Agent(object):
         self.dynamic_model = dynamics()
         self.goal = goal
         self.desired_state = goal
+        self.prev_state = state_belief
         self.prev_goal = goal
         self.goal_ind = 0
         self.base = 0
@@ -39,7 +40,7 @@ class Agent(object):
     def __repr__(self):
         return self.__str__()
 
-    def update_state_truth(self, tau, ctrl, dist, x_override=None):
+    def update_state_truth(self, tau, ctrl, dist=None, x_override=None):
         if x_override is None:
             self.state_truth = self.dynamic_model.integrate_state(tau, self.state, ctrl, dist)
         else:
@@ -105,8 +106,6 @@ class Fleet(object):
 
     # Used for management of all controllers attached to the agents
     def update_ctrls(self, env, time, params):
-        '''if time > 91:
-            input('wait...')'''
         for i in self.agents:
             trigger1 = True if self.agents[i].goal != self.agents[i].prev_goal else False
             if trigger1 is False:
@@ -232,7 +231,7 @@ class Fleet(object):
 
         return
 
-    def update(self, env, params, time_step):
+    def update(self, env, params, time_step, force_endpoint=False):
 
         # Layout:
         for i in self.agents:

@@ -31,11 +31,11 @@ class Node(object):
     def __repr__(self):
         return self.__str__()
 
-    def update_parents(self, id, edge, ctr):
-        self.parents[id] = [ctr, edge]
+    def update_parents(self, id, edge, ctr, path=None):
+        self.parents[id] = [ctr, edge, path]
 
-    def update_children(self, id, edge, ctr):
-        self.children[id] = [ctr, edge]
+    def update_children(self, id, edge, ctr, path=None):
+        self.children[id] = [ctr, edge, path]
 
 
 class Graph(object):
@@ -116,7 +116,7 @@ class Graph(object):
 
             for controls in ctr_range:
 
-                x_f = self.dyn.integrate_state(tau, x_i, controls, dist)
+                x_f, paths = self.dyn.integrate_state(tau, x_i, controls, dist, int_full=True)
 
                 for nodes2 in self.graph:
 
@@ -137,8 +137,8 @@ class Graph(object):
                     sqr = math.sqrt(sqr)
 
                     if sqr <= (beta_function(eta_1, tau) + eta_2):
-                        self.graph[nodes].update_children(nodes2, 1, controls)
-                        self.graph[nodes2].update_parents(nodes, 1, controls)
+                        self.graph[nodes].update_children(nodes2, 1, controls, paths)
+                        self.graph[nodes2].update_parents(nodes, 1, controls, paths)
                         break
 
 
@@ -147,8 +147,8 @@ def add_node_to_graph(graph, id, neighbors, edge=1):
     if neighbors is not None:
         for i in neighbors:
             # print(i)
-            node.parents[i] = edge
-            node.children[i] = edge
+            node.parents[i] = [edge]
+            node.children[i] = [edge]
 
     graph[id] = node
     return graph

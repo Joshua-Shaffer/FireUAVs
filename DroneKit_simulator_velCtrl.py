@@ -34,22 +34,22 @@ args = parser.parse_args()
 connection_string = args.connect
 sitl = None
 
-time.sleep(40)
+time.sleep(1)
 #Start SITL if no connection string specified
 if not connection_string:
     import dronekit_sitl
-    #sitl = dronekit_sitl.start_default()
+    sitl = dronekit_sitl.start_default()
     connection_strings = list()
     vehicle = list()
     origin = list()
     for i in range(0, sim_object.params.N):
-        connection_strings.append('127.0.0.1:145' + str(50 + (i)*10))
+        connection_strings.append('tcp:127.0.0.1:57' + str(60 + (i)*10))#'127.0.0.1:145' + str(50 + (i)*10))
         print('Connecting to vehicle on: %s' % connection_strings[i])
         vehicle.append(connect(connection_strings[i], wait_ready=True, baud=115200))
         origin.append(vehicle[i].location.global_frame)
         print(origin[i])
 
-    input('wait...')
+    #input('wait...')
 
 def get_location_metres(original_location, dNorth, dEast):
     """
@@ -126,45 +126,40 @@ def get_distance_metres_xy(aLocation1, aLocation2, scale):
 
 
 def goto(dChange, tol_meter, scale):
+    '''
+    goto function for sending vehicle to relative waypoint, TODO revise scale
+    '''
 
     check_statement = False
     targetLocation = list()
     for i, idx in enumerate(dChange):
         currentLocation=vehicle[i].location.global_frame
-        #print(idx)
         targetLocation.append(get_location_metres(currentLocation, idx[1], idx[0]))
-        #print(targetLocation[i])
-        #print(vehicle[i])
-        #input('wait...')
         vehicle[i].simple_goto(targetLocation[i], groundspeed=3.0)
         check_statement = check_statement or vehicle[i].mode.name=="GUIDED"
 
     while check_statement: #Stop action if we are no longer in guided mode.
         if update_visualizations(scale) is False:
-            return False;
-
+            return False
         remainingDistance = list()
         for i, quad in enumerate(vehicle):
-            #print(quad.location.global_frame)
+            print(quad.location.global_frame)
             remainingDistance.append(get_distance_metres(
                 quad.location.global_frame, targetLocation[i]))
             print('Vehicle ' + str(i) + ' remaining distance: ' + str(remainingDistance[i]))
             print('Vehicle ' + str(i) + ' groundspeed is ' + str(quad.groundspeed))
-            print('Vehicle ' + str(i) + ' heading is ' + str(quad.heading))
         #remainingDistance=get_distance_metres(vehicle.location.global_frame, targetLocation)
         #print("Distance to target: ", remainingDistance)
         if all(dist<=tol_meter for dist in remainingDistance): #Just below target, in case of undershoot.
             print("All vehicles reached their targets")
-            return True;
+            return True
         #time.sleep(2)
         check_statement = False
         for quad in vehicle:
             check_statement = check_statement or quad.mode.name == "GUIDED"
 
 
-
 def send_vehicle(locs, scale, tol_meter):
-    #print(loc)
     loc_rel = list()
     change_rel = list()
     for i, idx in enumerate(locs):
@@ -175,61 +170,47 @@ def send_vehicle(locs, scale, tol_meter):
     return goto(change_rel, tol_meter, scale)
 
 
-'''def update_vehicle_mission(aLocation, loc, scale):
-    """
-    Adds a takeoff command and four waypoint commands to the current mission.
-    The waypoints are positioned to form a square of side length 2*aSize around the specified LocationGlobal (aLocation).
-
-    The function assumes vehicle.commands matches the vehicle mission state
-    (you must have called download at least once in the session and after clearing the mission)
-    """
-
-    # Get the set of commands from the vehicle
-    cmds = vehicle.commands
-    print(cmds)
-    cmds.download()
-    cmds.wait_ready()
-
-    # Save the vehicle commands to a list
-    missionlist = []
-    for cmd in cmds:
-        missionlist.append(cmd)
-
-    print(" Clear any existing commands")
-    cmds.clear()
-
-    print("Adding new waypoint")
-    # Add new commands. The meaning/order of the parameters is documented in the Command class.
-
-    # Add MAV_CMD_NAV_TAKEOFF command. This is ignored if the vehicle is already in the air.
-    #cmds.add(
-    #    Command(0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0,
-    #            0, 0, 0, 0, 10))
-
-    # Define the four MAV_CMD_NAV_WAYPOINT locations and add the commands
-    point1 = get_location_metres(aLocation, loc[1] * scale, loc[0] * scale)
-    #print(missionlist)
-    #print(len(missionlist))
-
-    if len(missionlist) > 1:
-        cmds.add(missionlist[1])
-    elif len(missionlist) == 1:
-        cmds.add(missionlist[0])
-    else:
-        cmds.add(
-            Command(0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0,
-                    0,
-                    0, 0, 0, point1.lat, point1.lon, 10))
-    #prev_count = prev_count + 1
-    cmds.add(
-        Command(0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0,
-                0, 0, 0, point1.lat, point1.lon, 10))
-
-    print("Upload next waypoint to vehicle")
-    #print(cmds)
-    #input('wait...')
-    cmds.upload()
-    # TODO wait for confirmation'''
+def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
+    '''
+    Update loop for the real-time controller, tracks a reference (need to store instead
+    of integrating each time...)
+    :param passed_time:
+    :param start_loc:
+    :param quad:
+    :param K_p:
+    :param K_d:
+    :return:
+    '''
+    Desired_state = sim_object.fleet.agents['UAV' + str(i + 1)].dynamic_model.integrate_state \
+        (passed_time / 5.0, start_loc, sim_object.fleet.agents['UAV' + str(i + 1)].control_inputs,
+         [0.0, 0.0, 0.0])
+    heading_angle = 90 - Desired_state[2] * 180.0 / math.pi;
+    Current_state = get_distance_metres_xy(origin[i], quad.location.global_frame, 1.0)
+    pos_ctrl_dif = (Desired_state[0] * 10.0 - Current_state[0], Desired_state[1] * 10.0 - Current_state[1])
+    current_vel = (math.sin(quad.heading / 180.0 * math.pi) * quad.groundspeed,
+                   math.cos(quad.heading / 180.0 * math.pi) * quad.groundspeed)
+    velocity_input = (pos_ctrl_dif[0] * K_p - K_d * current_vel[0], pos_ctrl_dif[1] * K_p - K_d * current_vel[1])
+    msg = quad.message_factory.set_position_target_local_ned_encode(
+        0,  # time_boot_ms (not used)
+        0, 0,  # target system, target component
+        mavutil.mavlink.MAV_FRAME_LOCAL_NED,  # frame
+        0b0000111111000111,  # type_mask (only speeds enabled)
+        0, 0, 0,  # x, y, z positions (not used)
+        velocity_input[1], velocity_input[0], 0,  # x, y, z velocity in m/s
+        0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+    quad.send_mavlink(msg)
+    '''msg = quad.message_factory.command_long_encode(
+        0, 0,  # target system, target component
+        mavutil.mavlink.MAV_CMD_CONDITION_YAW,  # command
+        0,  # confirmation
+        heading_angle,  # param 1, yaw in degrees
+        0,  # param 2, yaw speed deg/s
+        1,  # param 3, direction -1 ccw, 1 cw
+        0,  # param 4, relative offset 1, absolute angle 0
+        0, 0, 0)  # param 5 ~ 7 not used
+    # send command to vehicle
+    quad.send_mavlink(msg)'''
 
 
 def arm_and_takeoff(aTargetAltitude, i):
@@ -307,10 +288,7 @@ def update_visualizations(scale):
     for i in fleet.agents:
         # pygame.draw.circle(screen, (94, 154, 249), fleet.agents[i].display_loc(Params), 10)
         pygame.draw.polygon(screen, (94, 154, 249), fleet.agents[i].display_loc(params))
-        #print(fleet.agents[i].display_loc(params))
 
-    # TODO: add visuals for the real-life vehicle
-    #print(vehicle.location.global_frame)
     for i, quad in enumerate(vehicle):
         x_loc, y_loc = get_distance_metres_xy(origin[0], quad.location.global_frame, scale)
 
@@ -337,9 +315,6 @@ def project_run():
     for i, quad in enumerate(vehicle):
         arm_and_takeoff(10, i)
 
-    #vehicle.commands.next = 0
-    #vehicle.mode = VehicleMode("AUTO")
-
     real_time_start = time.time()
     sim_time = 0.0
     sim_time_max_throttle = 3
@@ -351,6 +326,8 @@ def project_run():
     way_points_ahead = 1
     sim_update_number = 0
     way_point_number = 0
+    K_p = 1.0
+    K_d = 0.1
 
     #while True:
     #    ans = input('Ready to start?')
@@ -373,49 +350,40 @@ def project_run():
             close_all()
             break
 
-        #real_time = time.time() - real_time_start
-        #dif = sim_time - real_time
-        #if dif < sim_time_min_throttle * sim_time_update and trigger == 1:
-        #    close_all()
-        #elif dif + sim_time_update > sim_time_max_throttle * sim_time_update:
-        #    continue
-
-        #if (dif > sim_time_min_throttle * sim_time_update and
-        #        dif < sim_time_max_throttle * sim_time_update):
-        #    trigger = 1
-        #input('wait...')
-        #nextwaypoint = vehicle.commands.next
-        #print('Distance to waypoint (%s): %s' % (nextwaypoint, distance_to_current_waypoint()))
-        #print(download_mission())
-        #print(sim_update_number)
-        #print(nextwaypoint)
-        #if nextwaypoint == 1:
-        #    continue  # TODO: add back in
-
 
         tar = divmod(sim_time, sim_time_update)
         if math.fabs(tar[1]) < 0.1 * sim_time_throttler or tar[1] == 0.0 or math.fabs(
                 tar[1] - sim_time_update) < 0.1 * sim_time_throttler:
+
             locs = sim_object.synth_update(sim_time, sim_time_update)
             sim_update_number = sim_update_number + 1
-            #print(locs)
-            #input('wait')
-            #update_vehicle_mission(origin, locs, 10.0)
-            if send_vehicle(locs, 10.0, 1.3) is False:
-                close_all()
-                break
 
+            start_loc = []
+            for i, quad in enumerate(vehicle):
+                heading = sim_object.fleet.agents['UAV' + str(i+1)].prev_state[2]
+                value_pos = get_distance_metres_xy(origin[0], quad.location.global_frame, 1.0)
+                start_loc.append([sim_object.fleet.agents['UAV' + str(i+1)].prev_state[0] - 1.0,
+                                  sim_object.fleet.agents['UAV' + str(i + 1)].prev_state[1] - 1.0,
+                                 heading])
+            real_time_start = time.time()
+            while time.time() - real_time_start <= (sim_object.params.update_step * 5.0):
+                passed_time = time.time() - real_time_start
+                for i, quad in enumerate(vehicle):
+                    ctrl_loop(passed_time, start_loc[i], quad, K_p, K_d)
+
+                if update_visualizations(10.0) is False:
+                    close_all()
+                    return
             #vehicle.mode = VehicleMode("AUTO")
             print('Updated step')
 
         sim_object.update(sim_time_throttler)
 
         sim_time = sim_time + sim_time_throttler
-        print(sim_time)
+        #print(sim_time)
 
         #update()
         #transmit()
-
 
 
 """
@@ -423,9 +391,6 @@ script start
 """
 pygame.init()
 # Connect to the Vehicle
-input('wait...')
-'''close_all()
-input('wait...')'''
 window_size = [(WIDTH * sim_object.params.width),
                (HEIGHT * sim_object.params.height)]
 screen = pygame.display.set_mode(window_size)
