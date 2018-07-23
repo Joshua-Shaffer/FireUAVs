@@ -23,6 +23,27 @@ HEIGHT = 40
 MARGIN_HALF = 2
 sim_object = Sim_Object()
 
+def get_location_metres(original_location, dNorth, dEast):
+    """
+    Returns a LocationGlobal object containing the latitude/longitude `dNorth` and `dEast` metres from the
+    specified `original_location`. The returned Location has the same `alt` value
+    as `original_location`.
+
+    The function is useful when you want to move the vehicle around specifying locations relative to
+    the current vehicle position.
+    The algorithm is relatively accurate over small distances (10m within 1km) except close to the poles.
+    For more information see:
+    http://gis.stackexchange.com/questions/2951/algorithm-for-offsetting-a-latitude-longitude-by-some-amount-of-meters
+    """
+    earth_radius = 6378137.0  # Radius of "spherical" earth
+    # Coordinate offsets in radians
+    dLat = dNorth / earth_radius
+    dLon = dEast / (earth_radius * math.cos(math.pi * original_location.lat / 180))
+
+    # New position in decimal degrees
+    newlat = original_location.lat + (dLat * 180 / math.pi)
+    newlon = original_location.lon + (dLon * 180 / math.pi)
+    return LocationGlobal(newlat, newlon, original_location.alt)
 
 #Set up option parsing to get connection string
 import argparse
@@ -46,32 +67,11 @@ if not connection_string:
         connection_strings.append('tcp:127.0.0.1:57' + str(60 + (i)*10))#'127.0.0.1:145' + str(50 + (i)*10))
         print('Connecting to vehicle on: %s' % connection_strings[i])
         vehicle.append(connect(connection_strings[i], wait_ready=True, baud=115200))
-        origin.append(vehicle[i].location.global_frame)
+        loc_true_origin = get_location_metres(vehicle[i].location.global_frame, 0.0, -10.0)
+        origin.append(loc_true_origin)
         print(origin[i])
 
     #input('wait...')
-
-def get_location_metres(original_location, dNorth, dEast):
-    """
-    Returns a LocationGlobal object containing the latitude/longitude `dNorth` and `dEast` metres from the
-    specified `original_location`. The returned Location has the same `alt` value
-    as `original_location`.
-
-    The function is useful when you want to move the vehicle around specifying locations relative to
-    the current vehicle position.
-    The algorithm is relatively accurate over small distances (10m within 1km) except close to the poles.
-    For more information see:
-    http://gis.stackexchange.com/questions/2951/algorithm-for-offsetting-a-latitude-longitude-by-some-amount-of-meters
-    """
-    earth_radius = 6378137.0  # Radius of "spherical" earth
-    # Coordinate offsets in radians
-    dLat = dNorth / earth_radius
-    dLon = dEast / (earth_radius * math.cos(math.pi * original_location.lat / 180))
-
-    # New position in decimal degrees
-    newlat = original_location.lat + (dLat * 180 / math.pi)
-    newlon = original_location.lon + (dLon * 180 / math.pi)
-    return LocationGlobal(newlat, newlon, original_location.alt)
 
 
 def get_distance_metres(aLocation1, aLocation2):
@@ -170,7 +170,7 @@ def send_vehicle(locs, scale, tol_meter):
     return goto(change_rel, tol_meter, scale)
 
 
-def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
+def ctrl_loop(passed_time, start_loc, quad, K_p, K_d, des_in):
     '''
     Update loop for the real-time controller, tracks a reference (need to store instead
     of integrating each time...)
@@ -190,6 +190,12 @@ def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
     current_vel = (math.sin(quad.heading / 180.0 * math.pi) * quad.groundspeed,
                    math.cos(quad.heading / 180.0 * math.pi) * quad.groundspeed)
     velocity_input = (pos_ctrl_dif[0] * K_p - K_d * current_vel[0], pos_ctrl_dif[1] * K_p - K_d * current_vel[1])
+    graph_vel_input = (10.0 * math.cos((90 - heading_angle)/180.0*math.pi)*des_in[0]/5.0, 10.0 * math.sin((90 - heading_angle)/180.0*math.pi)*des_in[0]/5.0)
+    #print(heading_angle)
+    #print(des_in[0])
+    #print(graph_vel_input)
+    #print(velocity_input)
+    velocity_input = (velocity_input[0] + graph_vel_input[0], velocity_input[1] + graph_vel_input[1])
     msg = quad.message_factory.set_position_target_local_ned_encode(
         0,  # time_boot_ms (not used)
         0, 0,  # target system, target component
@@ -326,8 +332,8 @@ def project_run():
     way_points_ahead = 1
     sim_update_number = 0
     way_point_number = 0
-    K_p = 1.0
-    K_d = 0.1
+    K_p = 0.1
+    K_d = 0.01
 
     #while True:
     #    ans = input('Ready to start?')
@@ -369,7 +375,7 @@ def project_run():
             while time.time() - real_time_start <= (sim_object.params.update_step * 5.0):
                 passed_time = time.time() - real_time_start
                 for i, quad in enumerate(vehicle):
-                    ctrl_loop(passed_time, start_loc[i], quad, K_p, K_d)
+                    ctrl_loop(passed_time, start_loc[i], quad, K_p, K_d, sim_object.fleet.agents['UAV' + str(i+1)].control_inputs)
 
                 if update_visualizations(10.0) is False:
                     close_all()

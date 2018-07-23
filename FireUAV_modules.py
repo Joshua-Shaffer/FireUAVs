@@ -4,7 +4,7 @@ Author: Joshua Shaffer
 Purpose: Driver function for UAV fire sim. Will be retooled to work with the DroneKit on real-time basis
 
 Created: June 5, 2018
-Updated: June 13, 2018
+Updated: June 23, 2018
 '''
 
 import math
@@ -14,18 +14,20 @@ from FireEnv import Env, Cell
 from Dynamics import Dynamics
 from Graph import Graph
 
-
 class Sim_Object(object):
 
-    def __init__(self):
+    def __init__(self, start_loc=None, N=1, mode_version='NonSync', update_step=1.0, segment_per_update=10.0,
+                 segment_interval=100):
 
         self.gra = Graph(Dynamics)
+        self.segment_interval = segment_interval
         self.gra.generate_graph_from_dynamics([1.0, 1.0, math.pi/2.0], [3, (1., 10., 0), (1., 10., 0), (0., 3.0*math.pi/2.0, 1)],
                                      [[1., 0.], [1.0*math.pi/2.0, math.pi/2.0], [1.0*math.pi/2.0, -math.pi/2.0],
-                                      [0.0, 0.0]], 1., 0.1, 0.1)
+                                      [0.0, 0.0]], 1., 0.1, 0.1, self.segment_interval)
+
 
         # Populate obstacles and starting fire locations (plus intensities)
-        self.params = Params()
+        self.params = Params(N, mode_version, update_step, segment_per_update)
 
         # Obstacles and fires
         obs = [(2, 8), (3, 8), (3, 7), (4, 6), (6, 5), (6, 6), (6, 7), (7, 4), (7, 5), (7, 6), (8, 4), (8, 5), (8, 6), (8, 7)]
@@ -57,7 +59,11 @@ class Sim_Object(object):
 
         # State setup
         # Starting states
-        starts = [[2.0, 1.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
+        if start_loc is None:
+            starts = [[2.0, 1.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
+        else:
+            starts = start_loc
+
         self.fleet = Fleet(self.gra)
 
         for i in range(0, self.params.N):

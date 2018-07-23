@@ -4,11 +4,12 @@ Class holding all static parameters used in simulation. Shoved them in here to c
 import numpy as np
 import math
 
+
 class Params(object):
 
-    def __init__(self):
-        self.N = 1  # Number of UAVs
-        self.mode_version = 'NonSync'
+    def __init__(self, N=1, mode_version='NonSync', update_step=1.0, segment_per_update=10.0):
+        self.N = N  # Number of UAVs
+        self.mode_version = mode_version
         self.width = 10
         self.height = 10
         self.partition_size = 45  # meters
@@ -24,8 +25,8 @@ class Params(object):
         self.burn_times = np.array([1 / 0.035, 1 / 0.040, 1 / 0.045])  # L#np.array([1, 1, 1])
         self.burn_times = self.burn_times * self.partition_size / 3.0 #self.burn_times * 10.0
         self.stop_fail = 0.5
-        self.update_step = 1.0 #self.partition_size / self.UAV_speed  # temporary for paper purposes
-        self.time_step = self.update_step / 10.0
+        self.update_step = update_step #self.partition_size / self.UAV_speed  # temporary for paper purposes
+        self.time_step = self.update_step / segment_per_update
         self.sim_time = 3000
         self.stop_interval = self.update_step*50
         self.max_fire_intensity = 3

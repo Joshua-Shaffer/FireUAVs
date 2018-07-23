@@ -1,11 +1,9 @@
 """
-DroneKit_simulator
-Author: Joshua Shaffer (based on mission_basic.py example from DroneKit
-Purpose: Test computer-based mission run of the fireUAV simulator in "real-time".
-    Meant to figure out proper structure of running the simulator from a central
-    node (i.e. the computer) and send proper commands to UAVs. Also aim to
-    eventually test agency in UAVs (ability for them to override commands sent by
-    the computer's simulation, but not commands sent by mission planner
+OnBoard_controller.py
+Author: Joshua Shaffer
+Date: July 23, 2018
+Purpose: Drone-kit python script that communicates with control commands received from the ground.
+        Implements the dynamic graph constructed with a feedback/feedforward control loop
 """
 
 from __future__ import print_function
@@ -13,35 +11,23 @@ from __future__ import print_function
 from dronekit import connect, VehicleMode, LocationGlobalRelative, LocationGlobal, Command
 import time
 import math
+import socket
 from pymavlink import mavutil
-import pygame
-#from FireUAV_modules import Sim_Object
+from threading import Thread
+from FireUAV_modules import Sim_Object
 
-#Set up option parsing to get connection string
+#  Set up option parsing to get connection string and the associated vehicle ID used
+#  Used for testing in a terminal, needs to be initialized from bash script with appropriate arguments
 import argparse
 parser = argparse.ArgumentParser(description='Demonstrates basic mission operations.')
 parser.add_argument('--connect',
                    help="vehicle connection target string. If not specified, SITL automatically started and used.")
+parser.add_argument('--vehicle_id',help="ID of vehicle that this script is tied to...")
 args = parser.parse_args()
 
 connection_string = args.connect
+vehicle_id = args.vehicle_id
 sitl = None
-
-time.sleep(1)
-
-while True:
-    # TODO: these are methods that the script must pass before executing
-    # wait_receive_parameters()
-    # confirm_origin_and_relative_pos()
-    # any_other_checks()
-    if not connection_string:
-        import dronekit_sitl
-        #sitl = dronekit_sitl.start_default()
-        connection_string = 'tcp:127.0.0.1:57' + str(60 + (1) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
-        print('Connecting to vehicle on: %s' % connection_strings[i])
-        vehicle = connect(connection_string, wait_ready=True, baud=115200)
-        origin = vehicle.location.global_frame
-    break
 
 
 def get_location_metres(original_location, dNorth, dEast):
@@ -67,6 +53,48 @@ def get_location_metres(original_location, dNorth, dEast):
     return LocationGlobal(newlat, newlon, original_location.alt)
 
 
+"""'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+TCP connection section:
+    This is a temporary section for setting up the necessary TCP connection on the same computer. In implementation,
+    we will need to change accordingly with the WIFI or radio setup chosen for the drones
+"""
+TCP_IP = '127.0.0.1'
+TCP_PORT = 5005 + (int(vehicle_id) - 1)*10
+print(TCP_PORT)
+time.sleep(10)
+BUFFER_SIZE = 1024
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+print('Waiting to connect to the base server...')
+s.connect((TCP_IP, TCP_PORT))
+# TODO: insert time out error if connection cannot be made
+print('Connected to base!')
+
+# TODO: Parameters that must be grabbed from the base, need to check that they make sense...
+data = s.recv(BUFFER_SIZE)
+data = data.split()
+SCALE = float(data[0])
+TRANSITION_DURATION = float(data[1])
+SEGMENT_CONTROL_INTERVAL = 100
+K_p = float(data[2])
+K_d = float(data[3])
+
+# Temporary, should modify to work on native build of SITL if we wish to test multiple vehicles
+if not connection_string:
+    import dronekit_sitl
+    sitl = dronekit_sitl.start_default()
+    connection_string = 'tcp:127.0.0.1:57' + str(60 + (0) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
+    print('Connecting to vehicle on: %s' % connection_string)
+    vehicle = connect(connection_string, wait_ready=True, baud=115200)
+    loc_true_origin = get_location_metres(vehicle.location.global_frame, SCALE * float(data[4]), SCALE * float(data[5]))
+    origin = loc_true_origin
+    print('Calculated origin location')
+    print(origin)
+
+print('Sending origin to base!')
+s.send(str(origin.lat) + ' ' + str(origin.lon) + ' ' + str(origin.alt))
+"""'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''"""
+
+
 def get_distance_metres(aLocation1, aLocation2):
     """
     Returns the ground distance in metres between two LocationGlobal objects.
@@ -79,7 +107,8 @@ def get_distance_metres(aLocation1, aLocation2):
     dlong = aLocation2.lon - aLocation1.lon
     return math.sqrt((dlat * dlat) + (dlong * dlong)) * 1.113195e5
 
-def get_distance_metres_xy(aLocation1, aLocation2, scale):
+
+def get_distance_metres_xy(aLocation1, aLocation2):
     """
     Returns the ground distance in metres between two LocationGlobal objects.
 
@@ -89,9 +118,10 @@ def get_distance_metres_xy(aLocation1, aLocation2, scale):
     """
     dlat = aLocation2.lat - aLocation1.lat
     dlong = aLocation2.lon - aLocation1.lon
-    return dlong * 1.113195e5 / scale, dlat * 1.113195e5 / scale
+    return dlong * 1.113195e5, dlat * 1.113195e5
 
-'''def distance_to_current_waypoint():
+
+def distance_to_current_waypoint():
     """
     Gets distance in metres to the current waypoint.
     It returns None for the first waypoint (Home location).
@@ -105,85 +135,63 @@ def get_distance_metres_xy(aLocation1, aLocation2, scale):
     alt = missionitem.z
     targetWaypointLocation = LocationGlobalRelative(lat, lon, alt)
     distancetopoint = get_distance_metres(vehicle.location.global_frame, targetWaypointLocation)
-    return distancetopoint'''
+    return distancetopoint
 
 
-'''def download_mission():
+def ctrl_loop(ctrl_queue, timer, real_time):
     """
-    Download the current mission from the vehicle.
-    """
-    cmds = vehicle.commands
-    cmds.download()
-    cmds.wait_ready()  # wait until download is complete.
-    print(cmds)'''
-
-
-def goto(dChange, tol_meter, scale):
-    '''
-    goto function for sending vehicle to relative waypoint, TODO revise scale
-    '''
-
-    check_statement = False
-    targetLocation = list()
-    for i, idx in enumerate(dChange):
-        currentLocation=vehicle[i].location.global_frame
-        targetLocation.append(get_location_metres(currentLocation, idx[1], idx[0]))
-        vehicle[i].simple_goto(targetLocation[i], groundspeed=3.0)
-        check_statement = check_statement or vehicle[i].mode.name=="GUIDED"
-
-    while check_statement: #Stop action if we are no longer in guided mode.
-        if update_visualizations(scale) is False:
-            return False
-        remainingDistance = list()
-        for i, quad in enumerate(vehicle):
-            print(quad.location.global_frame)
-            remainingDistance.append(get_distance_metres(
-                quad.location.global_frame, targetLocation[i]))
-            print('Vehicle ' + str(i) + ' remaining distance: ' + str(remainingDistance[i]))
-            print('Vehicle ' + str(i) + ' groundspeed is ' + str(quad.groundspeed))
-        #remainingDistance=get_distance_metres(vehicle.location.global_frame, targetLocation)
-        #print("Distance to target: ", remainingDistance)
-        if all(dist<=tol_meter for dist in remainingDistance): #Just below target, in case of undershoot.
-            print("All vehicles reached their targets")
-            return True
-        #time.sleep(2)
-        check_statement = False
-        for quad in vehicle:
-            check_statement = check_statement or quad.mode.name == "GUIDED"
-
-
-def send_vehicle(locs, scale, tol_meter):
-    loc_rel = list()
-    change_rel = list()
-    for i, idx in enumerate(locs):
-        loc_rel.append(get_distance_metres_xy(origin[0], vehicle[i].location.global_frame, scale))
-        change_rel.append(((idx[0] - (loc_rel[i][0] + 1.0)) * scale,
-                           (idx[1] - (loc_rel[i][1] + 1.0)) * scale))
-
-    return goto(change_rel, tol_meter, scale)
-
-
-def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
-    '''
     Update loop for the real-time controller, tracks a reference (need to store instead
     of integrating each time...)
-    :param passed_time:
-    :param start_loc:
-    :param quad:
-    :param K_p:
-    :param K_d:
+    :param ctrl_queue: List of starting simulation locations, simulation controls, and simulation end locations
+        at a given simulation time. The dynamic graphs of the UAV and simulation must match for this to work...
+    :param timer: Update time associated at this control duration
+    :param real_time: Real time from outer loop
     :return:
-    '''
-    Desired_state = sim_object.fleet.agents['UAV' + str(i + 1)].dynamic_model.integrate_state \
-        (passed_time / 5.0, start_loc, sim_object.fleet.agents['UAV' + str(i + 1)].control_inputs,
-         [0.0, 0.0, 0.0])
-    heading_angle = 90 - Desired_state[2] * 180.0 / math.pi;
-    Current_state = get_distance_metres_xy(origin[i], quad.location.global_frame, 1.0)
-    pos_ctrl_dif = (Desired_state[0] * 10.0 - Current_state[0], Desired_state[1] * 10.0 - Current_state[1])
-    current_vel = (math.sin(quad.heading / 180.0 * math.pi) * quad.groundspeed,
-                   math.cos(quad.heading / 180.0 * math.pi) * quad.groundspeed)
+    """
+    passed_time = real_time - timer
+    t_div = divmod(passed_time/TRANSITION_DURATION, 1.0/SEGMENT_CONTROL_INTERVAL)
+    time_input = t_div[0]
+    time_input = round(time_input)
+
+    # grab start_loc from the queue
+    start_loc = ctrl_queue[timer/TRANSITION_DURATION][1:4]
+    control_inputs = ctrl_queue[timer/TRANSITION_DURATION][4:6]
+    next_loc = ctrl_queue[timer/TRANSITION_DURATION][6:9]
+    next_loc[0] = round(next_loc[0])
+    next_loc[1] = round(next_loc[1])
+
+    if abs(round(next_loc[2] - math.pi/2.0)) < 0.001:
+        next_loc[2] = math.pi/2.0
+    elif abs(round(next_loc[2] - math.pi)) < 0.001:
+        next_loc[2] = math.pi
+    elif abs(round(next_loc[2] - 3.0 * math.pi / 2.0)) < 0.001:
+        next_loc[2] = 3.0 * math.pi / 2.0
+    elif abs(round(next_loc[2] - 2.0 * math.pi)) < 0.001 or abs(round(next_loc[2] - 0.0)) < 0.001:
+        next_loc[2] = 0.0
+
+    start_loc[0] = round(start_loc[0])
+    start_loc[1] = round(start_loc[1])
+
+    if abs(round(start_loc[2] - math.pi/2.0)) < 0.001:
+        start_loc[2] = math.pi/2.0
+    elif abs(round(start_loc[2] - math.pi)) < 0.001:
+        start_loc[2] = math.pi
+    elif abs(round(start_loc[2] - 3.0 * math.pi / 2.0)) < 0.001:
+        start_loc[2] = 3.0 * math.pi / 2.0
+    elif abs(round(start_loc[2] - 2.0 * math.pi)) < 0.001 or abs(round(start_loc[2] - 0.0)) < 0.001:
+        start_loc[2] = 0.0
+
+    desired_state = sim_object.gra.graph[(start_loc[0], start_loc[1], start_loc[2])].children \
+        [(next_loc[0], next_loc[1], next_loc[2])][2][round(SEGMENT_CONTROL_INTERVAL*(round(time_input)/SEGMENT_CONTROL_INTERVAL))/SEGMENT_CONTROL_INTERVAL]
+    heading_angle = 90 - desired_state[2] * 180.0 / math.pi
+    current_state = get_distance_metres_xy(origin, vehicle.location.global_frame)
+    pos_ctrl_dif = ((desired_state[0] - 1.0) * SCALE - current_state[0], (desired_state[1] - 1.0) * SCALE - current_state[1])
+    current_vel = (math.sin(vehicle.heading / 180.0 * math.pi) * vehicle.groundspeed,
+                   math.cos(vehicle.heading / 180.0 * math.pi) * vehicle.groundspeed)
     velocity_input = (pos_ctrl_dif[0] * K_p - K_d * current_vel[0], pos_ctrl_dif[1] * K_p - K_d * current_vel[1])
-    msg = quad.message_factory.set_position_target_local_ned_encode(
+    graph_vel_input = (SCALE * math.cos((90 - heading_angle)/180.0*math.pi)*control_inputs[0]/5.0, SCALE * math.sin((90 - heading_angle)/180.0*math.pi)*control_inputs[0]/5.0)
+    velocity_input = (velocity_input[0] + graph_vel_input[0], velocity_input[1] + graph_vel_input[1])
+    msg = vehicle.message_factory.set_position_target_local_ned_encode(
         0,  # time_boot_ms (not used)
         0, 0,  # target system, target component
         mavutil.mavlink.MAV_FRAME_LOCAL_NED,  # frame
@@ -192,8 +200,8 @@ def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
         velocity_input[1], velocity_input[0], 0,  # x, y, z velocity in m/s
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
-    quad.send_mavlink(msg)
-    '''msg = quad.message_factory.command_long_encode(
+    vehicle.send_mavlink(msg)
+    '''msg = vehicle.message_factory.command_long_encode(
         0, 0,  # target system, target component
         mavutil.mavlink.MAV_CMD_CONDITION_YAW,  # command
         0,  # confirmation
@@ -203,7 +211,7 @@ def ctrl_loop(passed_time, start_loc, quad, K_p, K_d):
         0,  # param 4, relative offset 1, absolute angle 0
         0, 0, 0)  # param 5 ~ 7 not used
     # send command to vehicle
-    quad.send_mavlink(msg)'''
+    vehicle.send_mavlink(msg)'''
 
 
 def arm_and_takeoff(aTargetAltitude):
@@ -240,76 +248,111 @@ def arm_and_takeoff(aTargetAltitude):
 
 
 def close_all():
+    """
+    Force the UAV to return to home and confirm to base that it reached such and can shut down...
+    :return:
+    """
     print('Return to launch')
-    for i, quad in enumerate(vehicle):
-        quad.mode = VehicleMode("RTL")
-        print("Close vehicle " + str(i+1) + " object")
-        quad.close()
+    vehicle.mode = VehicleMode("RTL")
+    while distance_to_current_waypoint() > 0.1:
+        continue
+    print("Close vehicle " + str(1) + " object")
+    vehicle.close()
+    s.send('Confirmed')
+    s.close()
     # Shut down simulator if it was started.
     if sitl is not None:
         sitl.stop()
 
 
+class ListenToUpdates(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.start_sim = False
+        self.shut_down = False
+        self.ctrl_queue = dict()
+
+    def run(self):
+        while True:
+            data_list = s.recv(BUFFER_SIZE)
+            if data_list == "End!":
+                self.shut_down = True
+                break
+            elif data_list == 'Go!':
+                self.start_sim = True
+                continue
+            data_list = data_list.split()
+            for i, dat in enumerate(data_list):
+                data_list[i] = float(dat)
+            self.ctrl_queue[data_list[0]] = data_list
+
+
+class SendTrueLoc(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+
+    def run(self):
+        while True:
+            s.send('VehLoc ' + str(vehicle.location.global_frame.lat) + ' ' +
+                   str(vehicle.location.global_frame.lon) + ' ' + str(vehicle.location.global_frame.alt) + ' ')
+
+
 def execute_loop():
     """
-    Start up the simulation and arm vehicles to starting altitude
+    Arm and takeoff vehicle before establishing threads for constant communication with base and real-time control
+    through use of the control_queue
     """
 
-    print('Priming FireUAV simulation')
-
-    # From Copter 3.3 you will be able to take off using a mission item. Plane must take off using a mission item (currently).
+    # From Copter 3.3 you will be able to take off using a mission item. Plane must take off
+    # using a mission item (currently).
     arm_and_takeoff(10)  # TODO parameter associated with vehicle I.D.
-    K_p = 1.0  # TODO: parameters associated with vehicle I.D.
-    K_d = 0.1
-    transition_duration = 5.0
 
+    # Back and forth between UAV and base for confirming communication before starting simulation
+    print('Start up thread used for listening to base')
+    listener = ListenToUpdates()
+    listener.start()
+    print('Listening started!')
+    while listener.start_sim is False:
+        time.sleep(1)
+        print('Waiting for confirmation from base to begin simulation...')
+        continue
+    s.send('Echoed Start!')
+    print('Received go command from base and echoed back!')
+    sender = SendTrueLoc()
+    sender.start()
+    print('Thread used for sending location to base started!')
+    trans_count = 0
+
+    # Wait until the queue is populated by the base...
+    while listener.ctrl_queue == {}:
+        continue
+
+    # Begin real-time control loop
+    real_time = 0.0
     real_time_start = time.time()
-    sim_time = 0.0
-    sim_time_update = 1.0 # seconds
-    sim_time_throttler = 0.1
-    auto_run = True
-    sim_update_number = 0
-
     while True:
-        # if radio connection dropped, suspend and wait... (return home after so long)
-        #listen()
-
+        real_time_prev = real_time
         real_time = time.time() - real_time_start
-        # if real_time % transition_duration = 0.0, push out current queue item and proceed forward
+        update_time = trans_count * TRANSITION_DURATION
+        ctrl_loop(listener.ctrl_queue, update_time, real_time)
+        time.sleep(0.01)
+        if real_time_prev <= (trans_count + 1) * TRANSITION_DURATION <= real_time and real_time_prev != real_time:
+            t_div = divmod(real_time, TRANSITION_DURATION)
+            trans_count = int(round(t_div[0]))
+            print('Updated the perceived control index in the queue')
 
+        # TODO add in contigency plans and real-time checks here...
 
-
-            start_loc = []
-            for i, quad in enumerate(vehicle):
-                heading = sim_object.fleet.agents['UAV' + str(i+1)].prev_state[2]
-                value_pos = get_distance_metres_xy(origin[0], quad.location.global_frame, 1.0)
-                start_loc.append([sim_object.fleet.agents['UAV' + str(i+1)].prev_state[0] - 1.0,
-                                  sim_object.fleet.agents['UAV' + str(i + 1)].prev_state[1] - 1.0,
-                                 heading])
-            real_time_start = time.time()
-            while time.time() - real_time_start <= (sim_object.params.update_step * 5.0):
-                passed_time = time.time() - real_time_start
-                for i, quad in enumerate(vehicle):
-                    ctrl_loop(passed_time, start_loc[i], quad, K_p, K_d)
-
-                if update_visualizations(10.0) is False:
-                    close_all()
-                    return
-            #vehicle.mode = VehicleMode("AUTO")
-            print('Updated step')
-
-        sim_object.update(sim_time_throttler)
-
-        sim_time = sim_time + sim_time_throttler
-        #print(sim_time)
-
-        #update()
-        #transmit()
+        # Check to see if listener received go-ahead to shut down the channel and return...
+        if listener.shut_down is True:
+            close_all()
+            break
 
 
 """
 script start
 """
+sim_object = Sim_Object(segment_interval=SEGMENT_CONTROL_INTERVAL)
 execute_loop()
 
 

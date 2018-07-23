@@ -55,7 +55,7 @@ class Graph(object):
 
     # MAJOR TODO: Must redo how boundaries are set up, so that endpoints are not the NODE locations (this stems from how
     #       we recursively set up the nodes
-    def generate_graph_from_dynamics(self, res, sta_range, ctr_range, tau, eta_1, eta_2):
+    def generate_graph_from_dynamics(self, res, sta_range, ctr_range, tau, eta_1, eta_2, segment_interval=10):
 
         # sta_range is setup as [int=# of states, (start_range1, end_range1, 0 or 1 for real vs radial), ...]
         # resolutions is setup as (res1, res2, res3...)
@@ -116,7 +116,7 @@ class Graph(object):
 
             for controls in ctr_range:
 
-                x_f, paths = self.dyn.integrate_state(tau, x_i, controls, dist, int_full=True)
+                x_f, paths = self.dyn.integrate_state(tau, x_i, controls, dist, int_full=True, segment=segment_interval)
 
                 for nodes2 in self.graph:
 

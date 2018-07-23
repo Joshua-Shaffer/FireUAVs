@@ -34,16 +34,16 @@ args = parser.parse_args()
 connection_string = args.connect
 sitl = None
 
-time.sleep(40)
+time.sleep(1)
 #Start SITL if no connection string specified
 if not connection_string:
     import dronekit_sitl
-    #sitl = dronekit_sitl.start_default()
+    sitl = dronekit_sitl.start_default()
     connection_strings = list()
     vehicle = list()
     origin = list()
     for i in range(0, sim_object.params.N):
-        connection_strings.append('127.0.0.1:145' + str(50 + (i)*10))
+        connection_strings.append('tcp:127.0.0.1:57' + str(60 + (i)*10))#'127.0.0.1:145' + str(50 + (i)*10))
         print('Connecting to vehicle on: %s' % connection_strings[i])
         vehicle.append(connect(connection_strings[i], wait_ready=True, baud=115200))
         origin.append(vehicle[i].location.global_frame)

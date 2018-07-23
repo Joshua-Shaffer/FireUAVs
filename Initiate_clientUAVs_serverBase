@@ -1,0 +1,8 @@
+#!/bin/sh
+osascript -e 'tell app "Terminal"
+    do script "cd Documents/GitHub/FireUAVs;
+    python OnBoard_controller.py --vehicle_id 1"
+end tell'
+
+cd ~/Documents/GitHub/FireUAVs
+python OffBoard_simulator.py --vehicle_tot_num 1
