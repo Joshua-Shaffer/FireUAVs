@@ -23,4 +23,25 @@ python, and numerous pieces still need to be put in place. Additionally, this wo
 projects I have going on, so many pieces (FleetAndAgents.py, Dynamics.py, Graph.py) are being created with modularity in
 mind.
 
+For testing drone-kit, we use the following files:
+    1. OffBoard_simulator.py
+    2. OnBoard_controller.py
+    3. FireUAV_modules.py
+    4. Parameters_dronekit_version.py
+    5. Initiate_clientUAVs_serverBase
+
+    Plus all files from the list directly above EXCEPT main.py, module_tester.py, Parameters.py,
+    and SimFunctions.py
+
+Notes about drone-kit test:
+    --No vehicles parameters are currently changed for arducopter (i.e. defaults to copter3.3)
+    --Using TCP connections to simulate setup for actual coms alongside drone-kit-sitl.
+      This means that we can't simulate 2 vehicles at once since drone-kit-sitl doesn't
+      support multiple instances without backend work. Would have to modify to run with
+      native build of arducopter
+    --The bash script Initiate_clientUAVs_serverBase is currently used to call up
+      a new terminal to run the OnBoard_controller.py script with the appropriate arguments
+      regarding the number of UAVs total. If running this on windows, the bash script
+      will need modifications...
+
 Send any questions my way to jshaffe9@terpmail.umd.edu
