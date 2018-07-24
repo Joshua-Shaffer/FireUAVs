@@ -60,7 +60,7 @@ class Sim_Object(object):
         # State setup
         # Starting states
         if start_loc is None:
-            starts = [[2.0, 1.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
+            starts = [[2.0, 2.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0], [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
         else:
             starts = start_loc
 

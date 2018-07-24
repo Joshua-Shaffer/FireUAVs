@@ -80,9 +80,10 @@ K_d = float(data[3])
 
 # Temporary, should modify to work on native build of SITL if we wish to test multiple vehicles
 if not connection_string:
-    import dronekit_sitl
-    sitl = dronekit_sitl.start_default()
-    connection_string = 'tcp:127.0.0.1:57' + str(60 + (0) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
+    #import dronekit_sitl
+    #sitl = dronekit_sitl.start_default()
+    #print(sitl)
+    connection_string = 'tcp:127.0.0.1:57' + str(60 + (int(vehicle_id)-1) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
     print('Connecting to vehicle on: %s' % connection_string)
     vehicle = connect(connection_string, wait_ready=True, baud=115200)
     loc_true_origin = get_location_metres(vehicle.location.global_frame, SCALE * float(data[4]), SCALE * float(data[5]))
@@ -90,8 +91,9 @@ if not connection_string:
     print('Calculated origin location')
     print(origin)
 
-print('Sending origin to base!')
-s.send(str(origin.lat) + ' ' + str(origin.lon) + ' ' + str(origin.alt))
+if int(vehicle_id) == 1:
+    print('Sending origin to base!')
+    s.send(str(origin.lat) + ' ' + str(origin.lon) + ' ' + str(origin.alt))
 """'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''"""
 
 
@@ -181,6 +183,9 @@ def ctrl_loop(ctrl_queue, timer, real_time):
     elif abs(round(start_loc[2] - 2.0 * math.pi)) < 0.001 or abs(round(start_loc[2] - 0.0)) < 0.001:
         start_loc[2] = 0.0
 
+    if passed_time/TRANSITION_DURATION > 1.0:
+        time_input = SEGMENT_CONTROL_INTERVAL
+
     desired_state = sim_object.gra.graph[(start_loc[0], start_loc[1], start_loc[2])].children \
         [(next_loc[0], next_loc[1], next_loc[2])][2][round(SEGMENT_CONTROL_INTERVAL*(round(time_input)/SEGMENT_CONTROL_INTERVAL))/SEGMENT_CONTROL_INTERVAL]
     heading_angle = 90 - desired_state[2] * 180.0 / math.pi
@@ -201,7 +206,10 @@ def ctrl_loop(ctrl_queue, timer, real_time):
         0, 0, 0,  # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
         0, 0)  # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
     vehicle.send_mavlink(msg)
-    '''msg = vehicle.message_factory.command_long_encode(
+
+    if heading_angle < 0:
+        heading_angle = 360 + heading_angle
+    msg = vehicle.message_factory.command_long_encode(
         0, 0,  # target system, target component
         mavutil.mavlink.MAV_CMD_CONDITION_YAW,  # command
         0,  # confirmation
@@ -211,7 +219,7 @@ def ctrl_loop(ctrl_queue, timer, real_time):
         0,  # param 4, relative offset 1, absolute angle 0
         0, 0, 0)  # param 5 ~ 7 not used
     # send command to vehicle
-    vehicle.send_mavlink(msg)'''
+    vehicle.send_mavlink(msg)
 
 
 def arm_and_takeoff(aTargetAltitude):
@@ -293,8 +301,10 @@ class SendTrueLoc(Thread):
 
     def run(self):
         while True:
+            #print(vehicle.heading)
             s.send('VehLoc ' + str(vehicle.location.global_frame.lat) + ' ' +
-                   str(vehicle.location.global_frame.lon) + ' ' + str(vehicle.location.global_frame.alt) + ' ')
+                   str(vehicle.location.global_frame.lon) + ' ' + str(vehicle.location.global_frame.alt) + ' '
+                   + str(vehicle.heading) + ' ')
 
 
 def execute_loop():
@@ -335,7 +345,7 @@ def execute_loop():
         real_time = time.time() - real_time_start
         update_time = trans_count * TRANSITION_DURATION
         ctrl_loop(listener.ctrl_queue, update_time, real_time)
-        time.sleep(0.01)
+        time.sleep(0.05)
         if real_time_prev <= (trans_count + 1) * TRANSITION_DURATION <= real_time and real_time_prev != real_time:
             t_div = divmod(real_time, TRANSITION_DURATION)
             trans_count = int(round(t_div[0]))

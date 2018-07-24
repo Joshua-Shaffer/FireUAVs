@@ -1,8 +1,24 @@
 #!/bin/sh
+
+osascript -e 'tell app "Terminal"
+    do script "cd Documents/GitHub/FireUAVs;
+    dronekit-sitl copter-3.3 --instance 0"
+end tell'
+
+osascript -e 'tell app "Terminal"
+    do script "cd Documents/GitHub/FireUAVs;
+    dronekit-sitl copter-3.3 --instance 1"
+end tell'
+
 osascript -e 'tell app "Terminal"
     do script "cd Documents/GitHub/FireUAVs;
     python OnBoard_controller.py --vehicle_id 1"
 end tell'
 
+osascript -e 'tell app "Terminal"
+    do script "cd Documents/GitHub/FireUAVs;
+    python OnBoard_controller.py --vehicle_id 2"
+end tell'
+
 cd ~/Documents/GitHub/FireUAVs
-python OffBoard_simulator.py --vehicle_tot_num 1
+python OffBoard_simulator.py --vehicle_tot_num 2

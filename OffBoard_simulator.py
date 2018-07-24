@@ -31,8 +31,9 @@ MARGIN_HALF = 2
 SCALE_PER_UNIT = 10.0  # real_meters:simulated_meters
 REAL_TIME_UPDATE = 5.0  # real_secs:simulated_secs
 SIM_TIME_UPDATE = 1.0  # update time associated with synthesized controllers
-SIM_START_LOC = [[2.0, 1.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0],
+SIM_START_LOC = [[2.0, 2.0, 0.0], [2.0, 2.0, math.pi/2.0], [2.0, 1.0, math.pi], [1.0, 2.0, math.pi*3.0/2.0],
                  [2.0, 3.0, 0.0], [2.0, 3.0, 0.0]]
+VEHICLE_COLORS = [[255, 40, 3], [36, 195, 55]]
 K_p = 1.0  # Proportional and derivative gains on position
 K_d = 0.1
 
@@ -61,12 +62,15 @@ for i in range(0, int(vehicle_tot_num)):
     addr.append(addr_temp)
     print('Connection on vehicle ' + str(i + 1) + ' is at address: ' + str(addr_temp))
 
-# TODO: Modify this packet sending to work across multiple vehicles
-conn[0].send(str(SCALE_PER_UNIT) + " " + str(REAL_TIME_UPDATE) + " " + str(K_p) + " " + str(K_d) + " 0.0 -1.0")
+for i in range(0, int(vehicle_tot_num)):
+    print(i)
+    conn[i].send(str(SCALE_PER_UNIT) + " " + str(REAL_TIME_UPDATE) + " " + str(K_p) + " " + str(K_d) + " " +
+                 str(1.0 - SIM_START_LOC[i][1]) + " " + str(1.0 - SIM_START_LOC[i][0]) + " ")
                                # This packet corresponds to the scale (real_meters:simulated_meters), and the origin
                                # location (x, y) relative to the starting location of the vehicle in the simulation
                                # units
-print('Parameter packet sent to vehicle #' + str(1) + '!')
+    print('Parameter packet sent to vehicle #' + str(i + 1) + '!')
+
 origin = conn[0].recv(BUFFER_SIZE)
 print(origin)
 origin = origin.split()
@@ -135,9 +139,16 @@ def update_visualizations(scale, listeners):
         x_loc, y_loc = get_distance_metres_xy(origin, listeners[ll].vehicle_loc)
         x_loc = x_loc/scale
         y_loc = y_loc/scale
-        pygame.draw.circle(screen, (94, 154, 249),
-                        [int(round(WIDTH * x_loc + WIDTH / 2)),
-                            int(round(HEIGHT * (params.height - y_loc) - HEIGHT / 2))], 10)
+        heading_angle = listeners[ll].vehicle_loc[3]
+        for r in range(0,4):
+            current_leg = heading_angle + r*90.0 + 45.0
+            x_dist = math.sin(current_leg*math.pi/180.0) * WIDTH/3
+            y_dist = math.cos(current_leg*math.pi/180.0) * WIDTH/3
+            pygame.draw.circle(screen,
+                               (VEHICLE_COLORS[ll][0], VEHICLE_COLORS[ll][1], VEHICLE_COLORS[ll][2]),
+                        [int(round(WIDTH * x_loc + WIDTH / 2)) + int(round(x_dist)),
+                            int(round(HEIGHT * (params.height - y_loc) - HEIGHT / 2)) -
+                         int(round(y_dist))], 5)
 
     # Insert visualization update here
     # Limit to 60 frames per second
@@ -157,7 +168,7 @@ class ListenToUpdates(Thread):
         self.i = r
         self.end_sim = False  # Indicator tied to UAVs ability to end simulation from on_board process
         self.confirmation = False  # Confirmation echo of UAVs ability to start
-        self.vehicle_loc = [0.0, 0.0, 0.0]  # Dummy state of UAV, should update quickly
+        self.vehicle_loc = [0.0, 0.0, 0.0, 0.0]  # Dummy state of UAV, should update quickly
 
     def run(self):
         while True:
@@ -172,7 +183,8 @@ class ListenToUpdates(Thread):
                 data = data.split()
                 loc = self.vehicle_loc
                 for n, data_unit in enumerate(data):
-                    if data_unit == 'VehLoc' and len(data) > n + 4:
+                    #print(data)
+                    if data_unit == 'VehLoc' and len(data) > n + 5:
                         if data[n+1] == 'None' or data[n+1] is None:
                             data[n+1] = None
                         else:
@@ -185,7 +197,11 @@ class ListenToUpdates(Thread):
                             data[n+3] = None
                         else:
                             data[n+3] = float(data[n+3])
-                        loc = [data[n+1], data[n+2], data[n+3]]
+                        if data[n+4] == 'None' or data[n+4] is None:
+                            data[n+4] = None
+                        else:
+                            data[n+4] = float(data[n+4])
+                        loc = [data[n+1], data[n+2], data[n+3], data[n+4]]
                     elif data_unit == 'Echoed Start!':
                         self.confirmation = True
                         break
@@ -234,16 +250,22 @@ def project_run():
     print('Priming FireUAV simulation')
 
     scale_per_unit = 10.0
-    real_time_update = 5.0 # secs
+    real_time_update = 5.0  # secs
     sim_time = 0.0
     sim_time_update = 1.0  # seconds
     sim_time_throttler = 0.1
     sim_update_number = 0
 
     steps_ahead = 2
-    conn[0].send('Go!')
-    while listeners[0].confirmation is False:
-        continue
+    for ll in range(0, int(vehicle_tot_num)):
+        conn[ll].send('Go!')
+
+    waiter = False
+    while waiter is False:
+        waiter = True
+        for ll in range(0, int(vehicle_tot_num)):
+            waiter = waiter and listeners[ll].confirmation
+
     print('Sent go command and starting sim')
     real_time_start = time.time()
     while True:
