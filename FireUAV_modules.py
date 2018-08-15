@@ -25,7 +25,9 @@ class Sim_Object(object):
                                      [[1., 0.], [1.0*math.pi/2.0, math.pi/2.0], [1.0*math.pi/2.0, -math.pi/2.0],
                                       [0.0, 0.0]], 1., 0.1, 0.1, self.segment_interval)
 
-
+        for nodes in self.gra.graph:
+            self.gra.key_to_nodes.append(nodes)
+        self.ctrl_list = [[1., 0.], [1.0*math.pi/2.0, math.pi/2.0], [1.0*math.pi/2.0, -math.pi/2.0], [0.0, 0.0]]
         # Populate obstacles and starting fire locations (plus intensities)
         self.params = Params(N, mode_version, update_step, segment_per_update)
 

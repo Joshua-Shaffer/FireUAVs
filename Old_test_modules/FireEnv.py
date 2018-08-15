@@ -7,7 +7,7 @@ from Fire_Model_Eqns import FireSimulator
 
 
 class Env(object):
-    def __init__(self, domain=[[5.0, 105.0], [5.0, 105.0]], starting_loc=[[50.1, 50.1]], burn_length=30.0, U=3.0, obstacle_list=[[]]):
+    def __init__(self, domain=[[0.0, 100.0], [0.0, 100.0]], starting_loc=[[30.1, 30.1]], burn_length=30.0, U=1.0, obstacle_list=[[]]):
         self.cells = {}
         self.fire_sim = FireSimulator(domain, starting_loc, burn_length, U=U)
         self.obstacles = obstacle_list

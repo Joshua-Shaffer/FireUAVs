@@ -12,11 +12,12 @@ import socket
 import pygame
 from threading import Thread
 from FireUAV_modules import Sim_Object
+from dronekit import connect, VehicleMode, LocationGlobalRelative, LocationGlobal, Command
 
 # Set up option parsing to get number of vehicles connecting to the script
 import argparse
 parser = argparse.ArgumentParser(description='Demonstrates basic mission operations.')
-parser.add_argument('--vehicle_tot_number', help="ID of vehicle that this script is tied to...")
+parser.add_argument('--vehicle_tot_number', help="Total number of UAVs")
 args = parser.parse_args()
 
 vehicle_tot_num = args.vehicle_tot_number
@@ -40,6 +41,27 @@ K_d = 0.1
 # Create the simulation object used for managing fire sim
 sim_object = Sim_Object(start_loc=SIM_START_LOC, N=int(vehicle_tot_num), mode_version='NonSync', update_step=SIM_TIME_UPDATE)
 
+def get_location_metres(original_location, dNorth, dEast):
+    """
+    Returns a LocationGlobal object containing the latitude/longitude `dNorth` and `dEast` metres from the
+    specified `original_location`. The returned Location has the same `alt` value
+    as `original_location`.
+
+    The function is useful when you want to move the vehicle around specifying locations relative to
+    the current vehicle position.
+    The algorithm is relatively accurate over small distances (10m within 1km) except close to the poles.
+    For more information see:
+    http://gis.stackexchange.com/questions/2951/algorithm-for-offsetting-a-latitude-longitude-by-some-amount-of-meters
+    """
+    earth_radius = 6378137.0  # Radius of "spherical" earth
+    # Coordinate offsets in radians
+    dLat = dNorth / earth_radius
+    dLon = dEast / (earth_radius * math.cos(math.pi * original_location.lat / 180))
+
+    # New position in decimal degrees
+    newlat = original_location.lat + (dLat * 180 / math.pi)
+    newlon = original_location.lon + (dLon * 180 / math.pi)
+    return LocationGlobal(newlat, newlon, original_location.alt)
 
 """'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 TCP connection section:
@@ -47,39 +69,36 @@ TCP connection section:
     we will need to change accordingly with the WIFI or radio setup chosen for the drones
 """
 TCP_IP = '127.0.0.1'
-s = list()
-conn = list()
-addr = list()
+vehicles = list()
 for i in range(0, int(vehicle_tot_num)):
     TCP_PORT = 5005 + i * 10
-    print(TCP_PORT)
-    BUFFER_SIZE = 50
-    s.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
-    s[i].bind((TCP_IP, TCP_PORT))
-    s[i].listen(1)
-    conn_temp, addr_temp = s[i].accept()
-    conn.append(conn_temp)
-    addr.append(addr_temp)
+    vehicles.append(connect(connection_strings[i], wait_ready=True, baud=115200))
     print('Connection on vehicle ' + str(i + 1) + ' is at address: ' + str(addr_temp))
+    if i == 0:
+        origin = vehicles[i].location.global_frame
+        origin = get_location_metres(origin, -SCALE_PER_UNIT*(SIM_START_LOC[0][0]-1.0),
+                            -SCALE_PER_UNIT * (SIM_START_LOC[0][1] - 1.0))
 
-for i in range(0, int(vehicle_tot_num)):
+
+for i, veh_con in enumerate(vehicles):
+    vehicles[i].parameters['SWARMID'] = i+1
+    vehicles[i].flush()
+    vehicles[i].parameters['SCALE_GRAPH'] = SCALE_PER_UNIT
+    vehicles[i].flush()
+    vehicles[i].parameters['TRANS_DUR'] = REAL_TIME_UPDATE
+    vehicles[i].flush()
+    vehicles[i].parameters['POS_K_GAIN'] = K_p
+    vehicles[i].flush()
+    vehicles[i].parameters['VEL_K_GAIN'] = K_d
+    vehicles[i].flush()
+    vehicles[i].parameters['ORILAT'] = origin.lat
+    vehicles[i].flush()
+    vehicles[i].parameters['ORILONG'] = origin.long
+    vehicles[i].flush()
+    vehicles[i].parameters['ORIALT'] = origin.alt
+    vehicles[i].flush()
     print(i)
-    conn[i].send(str(SCALE_PER_UNIT) + " " + str(REAL_TIME_UPDATE) + " " + str(K_p) + " " + str(K_d) + " " +
-                 str(1.0 - SIM_START_LOC[i][1]) + " " + str(1.0 - SIM_START_LOC[i][0]) + " ")
-                               # This packet corresponds to the scale (real_meters:simulated_meters), and the origin
-                               # location (x, y) relative to the starting location of the vehicle in the simulation
-                               # units
     print('Parameter packet sent to vehicle #' + str(i + 1) + '!')
-
-origin = conn[0].recv(BUFFER_SIZE)
-print(origin)
-origin = origin.split()
-for i, dat in enumerate(origin):
-    print(dat)
-    if dat == 'None':
-        origin[i] = None
-    else:
-        origin[i] = float(dat)
 
 """'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''"""
 
@@ -97,7 +116,7 @@ def get_distance_metres_xy(a_location1, a_location2):
     return dlong * 1.113195e5, dlat * 1.113195e5
 
 
-def update_visualizations(scale, listeners):
+def update_visualizations(scale):
     """
     Visualization function used in main function loop. This is the ground software's understanding of the vehicles'
         locations and the desired location of the simulation
@@ -136,10 +155,10 @@ def update_visualizations(scale, listeners):
         pygame.draw.polygon(screen, (94, 154, 249), fleet.agents[ll].display_loc(params))
 
     for ll in range(0, int(vehicle_tot_num)):
-        x_loc, y_loc = get_distance_metres_xy(origin, listeners[ll].vehicle_loc)
+        x_loc, y_loc = get_distance_metres_xy(origin, vehicles[ll].location.global_frame)
         x_loc = x_loc/scale
         y_loc = y_loc/scale
-        heading_angle = listeners[ll].vehicle_loc[3]
+        heading_angle = vehicles[ll].heading
         for r in range(0,4):
             current_leg = heading_angle + r*90.0 + 45.0
             x_dist = math.sin(current_leg*math.pi/180.0) * WIDTH/3
@@ -159,80 +178,18 @@ def update_visualizations(scale, listeners):
     return True
 
 
-class ListenToUpdates(Thread):
-    """
-    Thread associated with listening to a single UAV
-    """
-    def __init__(self, r):
-        Thread.__init__(self)
-        self.i = r
-        self.end_sim = False  # Indicator tied to UAVs ability to end simulation from on_board process
-        self.confirmation = False  # Confirmation echo of UAVs ability to start
-        self.vehicle_loc = [0.0, 0.0, 0.0, 0.0]  # Dummy state of UAV, should update quickly
-
-    def run(self):
-        while True:
-
-            data = conn[self.i].recv(BUFFER_SIZE)
-            if not data:
-                self.end_sim = True
-                break
-            elif data == 'Echoed Start!':
-                self.confirmation = True
-            else:
-                data = data.split()
-                loc = self.vehicle_loc
-                for n, data_unit in enumerate(data):
-                    #print(data)
-                    if data_unit == 'VehLoc' and len(data) > n + 5:
-                        if data[n+1] == 'None' or data[n+1] is None:
-                            data[n+1] = None
-                        else:
-                            data[n+1] = float(data[n+1])
-                        if data[n+2] == 'None' or data[n+2] is None:
-                            data[n+2] = None
-                        else:
-                            data[n+2] = float(data[n+2])
-                        if data[n+3] == 'None' or data[n+3] is None:
-                            data[n+3] = None
-                        else:
-                            data[n+3] = float(data[n+3])
-                        if data[n+4] == 'None' or data[n+4] is None:
-                            data[n+4] = None
-                        else:
-                            data[n+4] = float(data[n+4])
-                        loc = [data[n+1], data[n+2], data[n+3], data[n+4]]
-                    elif data_unit == 'Echoed Start!':
-                        self.confirmation = True
-                        break
-                    elif data_unit == 'End It!':
-                        self.end_sim = True
-                        break
-                    self.vehicle_loc = loc
-
-
-def close_all(listeners):
+def close_all():
     """
     Used to send the End command to all UAVs and close the TCP ports. Will need to modify such that it waits for
         all UAVs to return home successfully before closing
     :param listeners:
     :return:
     """
-    for ll in range(0, int(vehicle_tot_num)):
-        # TODO: figure out how to end the "listener" thread and wait until confirmation is received from UAV
-        conn[ll].send("End!")
-        data = conn[ll].recv(BUFFER_SIZE)
-        data = data.split()
-        if data == 'Confirmed':
-            conn[ll].close()
-            conn[ll] = 'Success'
+    for quads in vehicles:
+        quads.parameters['PARAMETER_DKM'] = 10
+        quads.flush()
 
-    for r in conn:
-        if r != 'Success':
-            print('Unsuccessful closing of all TCP ports')
-            return
-
-    print('Successful closing of all TCP ports')
+    print('Successfully sent closed command')
 
 
 def project_run():
@@ -241,12 +198,6 @@ def project_run():
     to each UAV and listening to each UAV
     """
 
-    # Begin threads for listening to each UAV, place in list
-    print('Starting threads for listening to updates...')
-    listeners = list()
-    for ll in range(0, int(vehicle_tot_num)):
-        listeners.append(ListenToUpdates(ll))
-        listeners[ll].start()
     print('Priming FireUAV simulation')
 
     scale_per_unit = 10.0
@@ -257,28 +208,18 @@ def project_run():
     sim_update_number = 0
 
     steps_ahead = 2
-    for ll in range(0, int(vehicle_tot_num)):
-        conn[ll].send('Go!')
+    while statement is False:
+        statement = True
+        for quads in vehicles:
+            statement = statement and quads.parameters['PARAMETER_DKM'] == 1
 
-    waiter = False
-    while waiter is False:
-        waiter = True
-        for ll in range(0, int(vehicle_tot_num)):
-            waiter = waiter and listeners[ll].confirmation
-
-    print('Sent go command and starting sim')
+    #print('Sent go command and starting sim')
     real_time_start = time.time()
     while True:
 
         # Allow visualization function to close the simulation and vehicles down.
-        if update_visualizations(scale_per_unit, listeners) is False:
-            close_all(listeners)
-
-        # Allow each UAV to send end sim to base and shut everything down
-        for listener in listeners:
-            if listener.end_sim is True:
-                close_all(listeners)
-                return
+        if update_visualizations(scale_per_unit) is False:
+            close_all()
 
         # Use of "continue" in this statement is here to make sure UAV simulation doesn't go to far ahead
         real_time = time.time() - real_time_start
@@ -303,16 +244,21 @@ def project_run():
                 prev_state = sim_object.fleet.agents['UAV' + str(n + 1)].prev_state
                 des_state = sim_object.fleet.agents['UAV' + str(n + 1)].desired_state
                 controls = sim_object.fleet.agents['UAV' + str(n + 1)].control_inputs
-
                 # Update queue to each UAV
-                conn[n].send(str(sim_time) + ' ' +
-                             str(prev_state[0]) + ' ' + str(prev_state[1]) + ' ' + str(prev_state[2]) + ' ' +
-                             str(controls[0]) + ' ' + str(controls[1]) + ' ' +
-                             str(des_state[0]) + ' ' + str(des_state[1]) + ' ' + str(des_state[2]))
+                prev_key = sim_object.gra.key_to_nodes.index(prev_state)
+                des_key = sim_object.gra.key_to_nodes.index(des_state)
+                vehicles[i].parameters['GRAPH_DEFAULT'] = prev_key
+                vehicles[i].flush()
+                vehicles[i].parameters['CTRL_DEFUALT'] = des_key
+                vehicles[i].flush()
+                vehicles[i].parameters['TIME_DEFAULT'] = sim_time
+                vehicles[i].flush()
 
-                # TODO: could add a feedback on the UAV informing the simulation
-                #       that no next queues were available for X update steps
-                # TODO: THIS COULD BE AN OPTION IS SOFTWARE CONCURRENCE (VERIFY IT)
+            if sim_time == 0.0:
+                for n in range(0, int(vehicle_tot_num)):
+                    vehicles[i].parameters['PARAMETER_DKM'] = 2
+                    vehicles[i].flush()
+                print('Sent the vehicles on their way')
 
             print('Updated step in simulation and sent all information to the UAVs')
 

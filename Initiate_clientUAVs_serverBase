@@ -21,4 +21,3 @@ osascript -e 'tell app "Terminal"
 end tell'
 
 cd ~/Documents/GitHub/FireUAVs
-python OffBoard_simulator.py --vehicle_tot_num 2

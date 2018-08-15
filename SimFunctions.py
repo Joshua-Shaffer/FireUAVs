@@ -16,6 +16,8 @@ def simulation_loop(fleet, env, Params, visualize=False):
         pygame.init()
         window_size = [(Params.WIDTH * Params.width),
                (Params.HEIGHT) * Params.height]
+        #print(window_size)
+        #input('wait...')
         screen = pygame.display.set_mode(window_size)
         pygame.display.set_caption("UAVs on Fire")
         # Used to manage how fast the screen updates
@@ -50,8 +52,8 @@ def simulation_loop(fleet, env, Params, visualize=False):
                               (Params.HEIGHT) * (row), Params.WIDTH,
                               Params.HEIGHT], Params.MARGIN_HALF)
 
-            if divmod(t*60.0, 10.0)[1] == 0:
-                env.fire_sim.update_fire_visuals([440, 440], screen, pygame, float(60.0), [1.0, 1.0], env.obstacles)
+
+            env.fire_sim.update_fire_visuals(window_size, screen, pygame, float(20.0), [1.0, 1.0], env.obstacles)
 
             for i in fleet.agents:
                 #pygame.draw.circle(screen, (94, 154, 249), fleet.agents[i].display_loc(Params), 10)
@@ -69,6 +71,9 @@ def simulation_loop(fleet, env, Params, visualize=False):
         if continue_sim:
             #print('Current time:')
             #print(t)
+            if abs(divmod(4.0*t, 20.0)[1]) < 0.0001 or abs(divmod(4.0*t, 20.0)[1] - 20.0) < 0.0001:
+                env.fire_sim.update_simulation(t, env.obstacles)
+
             tar = divmod(t, Params.update_step)
             #print('ctr update')
             #print(tar)

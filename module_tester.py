@@ -9,6 +9,9 @@ gra = Graph(Dynamics)
 gra.generate_graph_from_dynamics([1.0, 1.0, math.pi/2.0], [3, (1., 10., 0), (1., 10., 0), (0., 3.0*math.pi/2.0, 1)],
                                  [[1., 0.], [1.0*math.pi/2.0, math.pi/2.0], [1.0*math.pi/2.0, -math.pi/2.0],
                                   [0.0, 0.0]], 1., 0.1, 0.1)
+single_key_list = list()
+for nodes in gra.graph:
+    single_key_list.append(nodes)
 print(gra)
 for nodes in gra.graph:
     print(nodes)
