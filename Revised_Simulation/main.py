@@ -1,7 +1,7 @@
 '''
 Author: Joshua Shaffer
 
-Purpose: Driver function for UAV fire sim. Will be retooled to work with the DroneKit on real-time basis
+Purpose: Driver function for UAV fire sim.
 
 Created: June 5, 2018
 Updated: June 13, 2018
@@ -12,7 +12,7 @@ import math
 from Parameters import Params
 from SimFunctions import simulation_loop
 from FleetAndAgents import Agent, Fleet
-from FireEnv import Env, Cell
+from FireEnv import Env
 from Dynamics import Dynamics
 from Graph import Graph
 
@@ -42,6 +42,7 @@ for i in range(1, params.width+1):
             Obstacle = 1
             obstacles_list.append([((i)*10.0 - 5.0, (j)*10.0 - 5.0), ((i)*10.0 + 5.0, (j)*10.0 - 5.0),
                                    ((i) * 10.0 + 5.0, (j) * 10.0 + 5.0), ((i)*10.0 - 5.0, (j)*10.0 + 5.0)])
+            env.obs_loc_synth.append((i,j))
             Fuel = 0
         else:
             Obstacle = 0
@@ -54,7 +55,8 @@ for i in range(1, params.width+1):
             Fires = 0
             FireUpdate = 0
 
-        env.add_cell((i, j), params, Obstacle, Fuel, Fires, FireUpdate, Water_Accum)
+        env.add_cell((i, j), (10.0*(i-1)+5.0, 10.0*(j-1)+5.0,), 1, [10.0, 10.0])
+
 
 env.obstacles = obstacles_list
 # State setup

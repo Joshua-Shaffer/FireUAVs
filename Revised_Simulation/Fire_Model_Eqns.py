@@ -493,6 +493,10 @@ class FireSimulator(object):
 
 
     def update_simulation(self, dt_update, obstacle_list):
+        #TODO!!!!!!
+        # create history list associated with all vertexes, adding to such the vertex closest(?) to the latest one and
+        # adopting that vertexes history up to that point. If the first vertex in the history pool contains a time_latest
+        # - current_time > burn time, you ditch that history vertex
         """
         Run simulation for run_time in minutes
         dt in seconds
@@ -587,7 +591,7 @@ class FireSimulator(object):
         #print(time.time() - time_start)
         return False
 
-    def update_fire_visuals(self, window_size, screen, pygame_instance, dt, resolution, obstacles_list):
+    def update_fire_visuals(self, window_size, screen, pygame_instance, resolution, obstacles_list):
         def transform_vertex_to_pixels(ratio, domain, vertex, window_size):
             new_poly = list()
             for pts in vertex:
@@ -619,40 +623,6 @@ class FireSimulator(object):
             pygame_instance.draw.polygon(screen, (94, 97, 102), transform_vertex_to_pixels(m_to_pixel,
                                         self.domain, obs,
                                          window_size))
-
-    '''if self.inside_poly(vertex_hist[len(vertex_hist)-1], loc):#
-                        #print(loc)
-                        inside_fire = True
-
-                    if len(vertex_hist) > int(round(self.burn_time/dt*60.0)):
-                        if type(vertex_hist[len(vertex_hist) - int(round(self.burn_time/dt*60.0))][0]) != list:
-                            if self.inside_poly(vertex_hist[len(vertex_hist) - int(round(self.burn_time/dt*60.0))],loc):
-                                inside_burnt = True
-                        else:
-                            for ii, hist_pts in enumerate(vertex_hist[len(vertex_hist) - int(round(self.burn_time/dt*60.0))]):
-                                if self.inside_poly(hist_pts, loc):
-                                    inside_burnt = True
-                                    break
-                        if inside_burnt: break #'''
-
-    '''if inside_burnt is True:
-pygame_instance.draw.rect(screen, (3, 25, 9),
-                 [(WIDTH) * column,
-                  (HEIGHT) * (row), WIDTH,
-                  HEIGHT])
-
-elif inside_fire is True:
-pygame_instance.draw.rect(screen, (242, 23, 12),
-                 [(WIDTH) * column,
-                  (HEIGHT) * (row), WIDTH,
-                  HEIGHT])
-                for obs in obstacles_list:
-                    if self.inside_poly(obs, loc):
-                        pygame.draw.rect(screen, (94, 97, 102),
-                                         [(WIDTH) * column,
-                                          (HEIGHT) * (row), WIDTH,
-                                          HEIGHT])
-                        break'''
 
         #for n, fires in enumerate(fire_list):
         #    for idx, pts in enumerate(fires[i+1]):

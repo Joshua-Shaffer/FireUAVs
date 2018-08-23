@@ -65,6 +65,107 @@ class Agent(object):
         self.water_level = water
         return
 
+    # TODO!!!!!!!!!!!!!!!
+    def drop_suppresant_loc(self, loc, fire_current, obstacles, suppressant_obstacles, duration, env):
+        """
+        Method to create a 'fill-in' obstacle for when a UAV drops suppressant.
+        :param loc:
+        :param fire_current:
+        :param obstacles:
+        :param suppressant_obstacles:
+        :param duration:
+        :param env:
+        :return:
+        """
+        if loc in suppressant_obstacles:
+            if duration > suppressant_obstacles[loc][1]:
+                suppressant_obstacles[loc][1] = duration
+                return
+
+        polygon_start = loc[1]
+        for idx, fires in enumerate(fire_current):
+            inside_vertexes = list()
+            polygon_temp = list()
+            for idx2, pts in enumerate(polygon_start):
+                polygon_temp.append(pts)
+                poly_line = [pts, polygon_start[idx2+1]] if idx2+1<len(polygon_start) else [pts, polygon_start[0]]
+                pt_list = list()
+                for idx3, fire_vertex in enumerate(fires):
+                    fire_line = [fire_vertex, fires[idx3+1]] if idx3+1<len(fires) else [fire_vertex, fires[0]]
+                    if env.fire_sim.intersect(poly_line, fire_line):
+                        pt_list.append(env.fire_sim.intersection_point(poly_line, fire_line))
+                pt_list.sort(key=lambda p: (p[0] - pts[0])**2 + (p[1] - pts[1])**2)
+                for extra in pt_list:
+                    polygon_temp.append(extra)
+
+            fire_vertex_inside = list()
+            for idx2, pts in enumerate(fires):
+                if env.fire_sim.inside_poly(polygon_start, pts):
+                    fire_vertex_inside.append(pts)
+
+
+            polygon_temp2 = list()
+            for idx2, pts in enumerate(polygon_temp):
+                if idx2 == 0:
+                    idx_before = len(polygon_temp)-1
+                    idx_after = idx2 + 1
+                elif idx2 == len(polygon_temp)-1:
+                    idx_before = idx2-1
+                    idx_after = 0
+                else:
+                    idx_before = idx2 - 1
+                    idx_after = idx2 + 1
+
+                if (not env.fire_sim.inside_poly(fires, pts) or not env.fire_sim.inside_poly(fires, polygon_temp[idx_before])
+                        or not env.fire_sim.inside_poly(fires, polygon_temp[idx_after])):
+                    polygon_temp2.append(pts)
+
+            polygon_temp3 = list()
+            for idx2, pts in enumerate(polygon_temp2):
+                next_idx = idx2+1 if idx2 < len(polygon_temp2)-1 else 0
+                polygon_temp3.append(pts)
+                if env.fire_sim.inside_poly(fires, pts) and env.fire_sim.inside_poly(fires, polygon_temp2[next_idx]):
+                    dist_1 = (fire_vertex_inside[0][0]-pts[0])**2 + (fire_vertex_inside[0][1]-pts[1])**2
+                    dist_2 = (fire_vertex_inside[len(fire_vertex_inside)-1][0]-pts[0])**2 + \
+                        (fire_vertex_inside[len(fire_vertex_inside) - 1][1] - pts[1]) ** 2
+                    #if fire_vertex_inside[0]
+
+
+
+
+
+            # Now we need to gather all vertices of fire that are inside the polygon and remove vertices from shape that
+            # are inside the fire (except for ones proceeding or preceeding vertices that are outside the fire)
+            ''' 
+            for idx2, fire_vertex in enumerate(fires):
+                
+                if env.fire_sim.inside_poly(polygon_start, fire_vertex):
+                    inside_vertexes.append(fire_vertex)
+                line = [fire_vertex, fires[idx2+1]] if idx2+1<len(fires) else [fire_vertex, fires[0]]
+
+                for idx, pts in enumerate(loc[1]):
+                    line_box = [pts, loc[1][idx + 1]] if idx + 1 < len(loc[1]) else [pts, loc[1][0]]
+
+                if env.fire_sim.inside_poly(loc[1], line[0]) or env.fire_sim.inside_poly(loc[1], line[1]):
+                    inside_lines.append(line)
+
+        for lines in inside_lines:
+
+                if env.fire_sim.intersect(lines, line_box):
+                    env.fire_sim.intersection_point(lines, line_box)'''
+
+
+
+
+
+
+
+
+        # SECOND, determine contour of fires that exist within the obstacle, cutting off at cell edges
+        # THIRD, create two shapes divided by contour, then use centroid of each to see which is inside the fire and
+            # which is not inside
+        # FOURTH, add the shape that's not inside the fire to the obstacle list and modify its associated timer
+
     # Provides display vectors for triangle representation of self
     def display_loc(self, params):
         center = (self.state_truth[0] - 1, params.height - (self.state_truth[1] - 1))
@@ -152,7 +253,7 @@ class Fleet(object):
 
             # gather current location and fire status
             loc = (round(self.agents[i].state_belief[0]), round(self.agents[i].state_belief[1]))
-            fire = 1 if env.cells[loc].fire > 0 else 0
+            fire = 1 if env.cells[loc].vertex_pts[0] in env.fire_abstract_total else 0
 
             # stop signal logic for updating an agent TODO fix stop signal variable
             stop_signal = 0  # if uniform(0,1) > 1 - params.stop_fail else 0
@@ -213,13 +314,13 @@ class Fleet(object):
             self.agents[i].wtr_output = self.agents[i].wtr_ctrler.move(base, self.agents[i].sync_signal, goal)
             val = re.findall('\d+', self.agents[i].wtr_output["loc"])
             # add water dropped by UAV to the appropriate cell
-            if wtr_out_prev["loc"] != self.agents[i].wtr_output["loc"]:
-                val2 = re.findall('\d+', wtr_out_prev["loc"])
-                env.cells[
-                    (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum = \
-                    env.cells[
-                        (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum + \
-                    (float(val2[0]) - float(val[0]))/100.0*params.max_water_capacity
+            #if wtr_out_prev["loc"] != self.agents[i].wtr_output["loc"]:
+            #    val2 = re.findall('\d+', wtr_out_prev["loc"])
+            #    env.cells[
+            #        (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum = \
+            #        env.cells[
+            #            (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum + \
+            #        (float(val2[0]) - float(val[0]))/100.0*params.max_water_capacity
 
             self.agents[i].water_level = int(val[0])  # not necessary I think
             #print(self.agents[i].water_level)
@@ -275,10 +376,10 @@ class Fleet(object):
         #if time > 21:
         #    print('ctrls/' + top_directory + '/' + file_name)
         #    print(os.path.exists('ctrls/' + top_directory + '/' + file_name))
-        if os.path.exists('ctrls/' + top_directory + '/' + file_name2):
-            return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name2)
+        if os.path.exists('../ctrls/' + top_directory + '/' + file_name2):
+            return imp.load_source('TulipStrategy', '../ctrls/' + top_directory + '/' + file_name2)
         else:
-            return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name)
+            return imp.load_source('TulipStrategy', '../ctrls/' + top_directory + '/' + file_name)
 
     # return region associated with goal
     def region_interpreter(self, state, goal, time):
@@ -297,7 +398,7 @@ class Fleet(object):
         else:
             ori = '3'
 
-        file_name = 'W_partitions/Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
+        file_name = '../W_partitions/Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
         # print(file_name)
         state_name = 'Pos' + str(int(round(state[0]))) + '_' + str(int(round(state[1]))) + 'Ori' + ori
         # print(state_name)

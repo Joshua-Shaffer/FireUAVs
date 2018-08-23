@@ -7,8 +7,9 @@ def allocation_function(fleet, params, env):
     fires = list()
     fireLocs = list()
     for i in env.cells:
-        if env.cells[i].fire > 0:
-            fires.append([i, env.cells[i].fire])
+        if env.cells[i].vertex_pts[0] in env.fire_abstract_total and i not in env.obs_loc_synth:
+            #print(i)
+            fires.append([i, 2])
             fireLocs.append(i)
 
     locs = list()

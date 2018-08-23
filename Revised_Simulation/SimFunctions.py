@@ -36,12 +36,7 @@ def simulation_loop(fleet, env, Params, visualize=False):
 
             for row in range(Params.height):
                 for column in range(Params.width):
-                    if env.cells[(column+1, Params.width - (row))].fire > 0:
-                        color = Params.fire_color[env.cells[(column+1, Params.width - (row))].fire-1]
-                    elif env.cells[(column+1, Params.width - (row))].obstacle == 1:
-                        color = Params.obs_color
-                    else:
-                        color = Params.fuel_color[env.cells[((column+1), Params.width - (row))].fuel]
+                    color = Params.fuel_color[6]
 
                     pygame.draw.rect(screen, color,
                              [(Params.WIDTH) * column,
@@ -53,7 +48,8 @@ def simulation_loop(fleet, env, Params, visualize=False):
                               Params.HEIGHT], Params.MARGIN_HALF)
 
 
-            env.fire_sim.update_fire_visuals(window_size, screen, pygame, float(20.0), [1.0, 1.0], env.obstacles)
+            env.fire_sim.update_fire_visuals(window_size, screen, pygame, [1, 1], env.obstacles)
+            env.update_abstractions_visuals(window_size, screen, pygame, [1, 1])
 
             for i in fleet.agents:
                 #pygame.draw.circle(screen, (94, 154, 249), fleet.agents[i].display_loc(Params), 10)
@@ -73,6 +69,8 @@ def simulation_loop(fleet, env, Params, visualize=False):
             #print(t)
             if abs(divmod(4.0*t, 20.0)[1]) < 0.0001 or abs(divmod(4.0*t, 20.0)[1] - 20.0) < 0.0001:
                 env.fire_sim.update_simulation(t, env.obstacles)
+                #print(env.cells[(6, 6)].vertex_pts)
+                #print(env.fire_sim.fire_list)
 
             tar = divmod(t, Params.update_step)
             #print('ctr update')
@@ -85,8 +83,8 @@ def simulation_loop(fleet, env, Params, visualize=False):
                 print(t)
                 fleet.allocate(env, Params)
                 fleet.update_ctrls(env, t, Params)
-                env.update_cells(Params, Params.update_step)
-                env.update_cells_agent_action(Params)
+                env.update_cells()
+                #env.update_cells_agent_action(Params)
 
                 #input('slow down man')
 
