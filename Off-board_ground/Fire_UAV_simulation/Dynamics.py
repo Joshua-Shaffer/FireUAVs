@@ -24,8 +24,8 @@ class Dynamics(object):
 
         path = dict()
         path[r.t] = r.y
-        while r.successful() and (r.t - time_step) < 0.0 and math.fabs(r.t - time_step) > time_step/segment/100:
-            r.integrate(round(100000.0*(r.t+time_step/segment))/100000.0)
+        while r.successful() and (r.t - time_step) < 0.0 and math.fabs(r.t - time_step) > time_step/segment/10:
+            r.integrate(round(1000.0*(r.t+time_step/segment))/1000.0)
             path[r.t] = r.y
 
         if int_full is True:

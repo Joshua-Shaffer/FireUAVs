@@ -487,13 +487,15 @@ Purpose: Generate finite horizons around a single goal and synthesize the correc
 
 def create_and_synthesize_specs_single_goal(x_goal_loc, y_goal_loc, dimension_x, dimension_y, obs_loc):
     # These exceptions are used for preventing synthesis around goals where obstacles or edges are
-    if x_goal_loc == 1 or x_goal_loc == dimension_x or y_goal_loc == 1 or y_goal_loc == dimension_y:
+    if x_goal_loc != 1 and x_goal_loc != dimension_x and y_goal_loc != 1 and y_goal_loc != dimension_y:
+        return
+    if (x_goal_loc == 1 or x_goal_loc == dimension_x) and (y_goal_loc == 1 or y_goal_loc == dimension_y):
         return
     if (x_goal_loc, y_goal_loc) in obs_loc:
         return
     # Use this to force continuation from last goal synthesized
-    if not (x_goal_loc == 2 and y_goal_loc == 2):
-        return
+    #if not (x_goal_loc == 2 and y_goal_loc == 2):
+    #    return
 
 
     # Construct the finite automata for each section surrounding goal,

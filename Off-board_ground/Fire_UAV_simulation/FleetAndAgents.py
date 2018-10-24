@@ -275,10 +275,10 @@ class Fleet(object):
         #if time > 21:
         #    print('ctrls/' + top_directory + '/' + file_name)
         #    print(os.path.exists('ctrls/' + top_directory + '/' + file_name))
-        if os.path.exists('ctrls/' + top_directory + '/' + file_name2):
-            return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name2)
+        if os.path.exists('../ctrls/' + top_directory + '/' + file_name2):
+            return imp.load_source('TulipStrategy', '../ctrls/' + top_directory + '/' + file_name2)
         else:
-            return imp.load_source('TulipStrategy', 'ctrls/' + top_directory + '/' + file_name)
+            return imp.load_source('TulipStrategy', '../ctrls/' + top_directory + '/' + file_name)
 
     # return region associated with goal
     def region_interpreter(self, state, goal, time):
@@ -297,9 +297,10 @@ class Fleet(object):
         else:
             ori = '3'
 
-        file_name = 'W_partitions/Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
+        file_name = 'Fire_UAV_simulation/W_partitions/Goal' + str(int(round(goal[0]))) + '_' + str(int(round(goal[1]))) + '.csv'
         # print(file_name)
         state_name = 'Pos' + str(int(round(state[0]))) + '_' + str(int(round(state[1]))) + 'Ori' + ori
+        #print(os.getcwd())
         # print(state_name)
         #if time > 21:
         #    print(file_name)

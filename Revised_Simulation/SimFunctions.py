@@ -4,6 +4,7 @@ controllers (will want to move the latter to different module)
 '''
 import pygame
 import math
+import time
 
 
 # These following two functions are HIGHLY dependent on the format of state for this simulation and the files they call
@@ -12,6 +13,7 @@ import math
 def simulation_loop(fleet, env, Params, visualize=False):
 
     # Setup visuals
+    visualize2 = False
     if visualize:
         pygame.init()
         window_size = [(Params.WIDTH * Params.width),
@@ -22,17 +24,25 @@ def simulation_loop(fleet, env, Params, visualize=False):
         pygame.display.set_caption("UAVs on Fire")
         # Used to manage how fast the screen updates
         clock = pygame.time.Clock()
+        visualize2 = True
 
     t = 0.0
-    continue_sim = True
+    continue_sim = False
+    time_start = time.time()
+    time_start2 = time.time()
     while t <= Params.sim_time:
 
+        '''VISUALIZATION FUNCTIONS>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'''
         if visualize:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                     continue_sim = not continue_sim
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_1:
+                    visualize2 = not visualize2
+
+        if visualize2:
 
             for row in range(Params.height):
                 for column in range(Params.width):
@@ -47,14 +57,15 @@ def simulation_loop(fleet, env, Params, visualize=False):
                               (Params.HEIGHT) * (row), Params.WIDTH,
                               Params.HEIGHT], Params.MARGIN_HALF)
 
-
+            env.fire_sim.update_obstacle_visuals(window_size, screen, pygame, [1, 1], env.obstacles)
+            env.update_suppressant_visuals(window_size, screen, pygame)
             env.fire_sim.update_fire_visuals(window_size, screen, pygame, [1, 1], env.obstacles)
             env.update_abstractions_visuals(window_size, screen, pygame, [1, 1])
 
             for i in fleet.agents:
-                #pygame.draw.circle(screen, (94, 154, 249), fleet.agents[i].display_loc(Params), 10)
-                pygame.draw.polygon(screen, (94, 154, 249), fleet.agents[i].display_loc(Params))
-
+                locs_use = fleet.agents[i].display_loc(Params)
+                pygame.draw.polygon(screen, (94, 154, 249), locs_use[0])
+                pygame.draw.line(screen, (0,0,0), locs_use[1][0], locs_use[1][1], 2)
 
             # Insert visualization update here
             # Limit to 60 frames per second
@@ -62,45 +73,56 @@ def simulation_loop(fleet, env, Params, visualize=False):
 
             # Go ahead and update the screen with what we've drawn.
             pygame.display.flip()
+        '''<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'''
 
-        r = 2
+        '''SIMULATION FUNCTIONS>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'''
         if continue_sim:
-            #print('Current time:')
-            #print(t)
-            if abs(divmod(4.0*t, 20.0)[1]) < 0.0001 or abs(divmod(4.0*t, 20.0)[1] - 20.0) < 0.0001:
-                env.fire_sim.update_simulation(t, env.obstacles)
-                #print(env.cells[(6, 6)].vertex_pts)
-                #print(env.fire_sim.fire_list)
+            if abs(divmod(t, 15.0)[1]) < 0.0001 or abs(divmod(t, 15.0)[1] - 15.0) < 0.0001:
+                env.fire_sim.update_simulation(15.0/1.0, env.obstacles, env.suppressant_obstacles, t, Params)
+                #print('Fire sim update: ' + str(time_start - time.time()))
+                time_start = time.time()
+                env.update_cells()
+                #print('Cell abstr update: ' + str(time_start - time.time()))
+                time_start = time.time()
+                for hist in env.fire_sim.fire_list:
+                    #print('Total fire size: ' + str(len(hist[len(hist)-1])) + ' vertices')
+                    for idx,pts in enumerate(hist[len(hist)-1]):
+                        if pts[0] < env.domain[0][0] or pts[0] > env.domain[0][1] or pts[1] < env.domain[1][0] \
+                         or pts[1] > env.domain[1][1]:
+                            print(t)
+                            print('Total runtime: ' + str(time.time() - time_start2))
+                            return t
+                #print('Check edge: ' + str(time_start - time.time()))
+                #time_start = time.time()
 
             tar = divmod(t, Params.update_step)
-            #print('ctr update')
-            #print(tar)
-            #print(math.fabs(tar[1]) < 0.1 * Params.sim_throttle)
-            if math.fabs(tar[1]) < 0.1 * Params.sim_throttle or tar[1] == 0.0 or math.fabs(tar[1] - Params.update_step) < 0.1 * Params.sim_throttle:
-                #for i in fleet.agents:
-                #    print(fleet.agents[i].state_belief)
-                #input('Stop...')
+            if math.fabs(tar[1]) < 0.1 * Params.sim_throttle or tar[1] == 0.0 or \
+                    math.fabs(tar[1] - Params.update_step) < 0.1 * Params.sim_throttle:
                 print(t)
-                fleet.allocate(env, Params)
+                fleet.allocate(env, Params, t)
+                #print('Allocate: ' + str(time_start - time.time()))
+                #time_start = time.time()
                 fleet.update_ctrls(env, t, Params)
-                env.update_cells()
-                #env.update_cells_agent_action(Params)
-
-                #input('slow down man')
+                #print('Update_ctrls: ' + str(time_start - time.time()))
+                #time_start = time.time()
 
             tar = divmod(t, Params.time_step)
-            #print('Prop update')
+            #print(t)
+            #print(Params.time_step)
             #print(tar)
-            #print(math.fabs(tar[1]) < 0.1 * Params.sim_throttle or tar[1] == 0.0)
+            #time_start = time.time()
             if math.fabs(tar[1]) >= 0.0001 and tar[1] != 0.0 and math.fabs(tar[1] - Params.time_step) >= 0.0001:
-                input('SKIPPED SOME INTEGRATION>>>')
+                asdf = 1
+                #input('SKIPPED SOME INTEGRATION>>>')
             if math.fabs(tar[1]) < 0.0001 or tar[1] == 0.0 or math.fabs(tar[1] - Params.time_step) < 0.0001:
                 fleet.update(env, Params, Params.time_step)
-                #if r == 1:
-                #for i in fleet.agents:
-                #    print(fleet.agents[i].state_belief)
-                #input('wait...')
+                #print('Update UAV: ' + str(time_start - time.time()))
+                #time_start = time.time()
+                env.update_suppressant_obstacles(t)
+                #print('Real update: ' + str(time_start - time.time()))
+                #time_start = time.time()
 
             t = t + Params.sim_throttle
+        '''<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'''
 
     return 'No results yet bud'

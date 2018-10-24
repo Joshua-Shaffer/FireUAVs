@@ -10,10 +10,9 @@ Purpose: Test computer-based mission run of the fireUAV simulator in "real-time"
 
 from __future__ import print_function
 
-from dronekit import connect, VehicleMode, LocationGlobalRelative, LocationGlobal, Command
+from dronekit import connect, VehicleMode, LocationGlobal
 import time
 import math
-from pymavlink import mavutil
 import pygame
 from FireUAV_modules import Sim_Object
 
@@ -37,7 +36,6 @@ sitl = None
 time.sleep(40)
 #Start SITL if no connection string specified
 if not connection_string:
-    import dronekit_sitl
     #sitl = dronekit_sitl.start_default()
     connection_strings = list()
     vehicle = list()

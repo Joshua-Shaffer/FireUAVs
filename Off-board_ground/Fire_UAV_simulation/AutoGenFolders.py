@@ -1,8 +1,8 @@
 import os
 
-for X in range(2,10):
-    for Y in range(2,10):
+for X in range(1,11):
+    for Y in range(1,11):
         names = 'Goal' + str(X) + '_' + str(Y)
-        newpath = 'ctrls2/' + names
+        newpath = 'ctrls/' + names
         if not os.path.exists(newpath):
             os.makedirs(newpath)

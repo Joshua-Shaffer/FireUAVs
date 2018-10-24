@@ -12,7 +12,7 @@ import math
 from Parameters import Params
 from SimFunctions import simulation_loop
 from FleetAndAgents import Agent, Fleet
-from FireEnv import Env, Cell
+from FireEnv import Env
 from Dynamics import Dynamics
 from Graph import Graph
 

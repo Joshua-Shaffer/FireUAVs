@@ -33,6 +33,8 @@ class Agent(object):
         self.sync_signal_prev = 1
         self.sync_signal = 1  # Will need to change eventually... (part of a function that observes other UAVs)
         self.pause_time = -pause_interval
+        self.prev_stop = 0
+        self.prev_fire = 0
 
     def __str__(self):
         return 'Agent: ' + self.name + ' State: ' + str(self.state)
@@ -65,10 +67,10 @@ class Agent(object):
         self.water_level = water
         return
 
-    # TODO!!!!!!!!!!!!!!!
-    def drop_suppresant_loc(self, loc, fire_current, obstacles, suppressant_obstacles, duration, env):
+    def drop_suppresant_loc(self, loc_c, loc_s, duration, env, time, ori, params):
         """
-        Method to create a 'fill-in' obstacle for when a UAV drops suppressant.
+        Method to create a 'fill-in' obstacle for when a UAV drops suppressant. Since a UAVs action is restricted to an
+        action per cell, this is the easiest way to extrapolate the control authority to better direct suppressant drop
         :param loc:
         :param fire_current:
         :param obstacles:
@@ -77,98 +79,108 @@ class Agent(object):
         :param env:
         :return:
         """
-        if loc in suppressant_obstacles:
-            if duration > suppressant_obstacles[loc][1]:
-                suppressant_obstacles[loc][1] = duration
-                return
+        if loc_c in env.suppressant_obstacles:
+            #print(time)
+            #print(duration + env.suppressant_obstacles[loc_c][1][0]-time)
+            #print(params.burn_through)
+            #input('wait..')
+            if duration + env.suppressant_obstacles[loc_c][1][0]+env.suppressant_obstacles[loc_c][1][1]-time > params.burn_through*60.0:
+                #input('wait...')
+                env.suppressant_obstacles[loc_c][1] = (params.burn_through*60.0,
+                                                   time)
+            else:
+                env.suppressant_obstacles[loc_c][1] = (duration + env.suppressant_obstacles[loc_c][1][0],
+                                                       env.suppressant_obstacles[loc_c][1][1])
+            return
 
-        polygon_start = loc[1]
-        for idx, fires in enumerate(fire_current):
-            inside_vertexes = list()
+        #print(ori)
+        #print(loc_c)
+        #if ori == 1 or ori == 3:
+        #    loc = [[loc_s[0] * 10.0 - 1.5, loc_s[1] * 10.0 - 5.0], [loc_s[0] * 10.0 + 1.5, loc_s[1] * 10.0 - 5.0],
+        #       [loc_s[0] * 10.0 + 1.5, loc_s[1] * 10.0 + 5.0], [loc_s[0] * 10.0 - 1.5, loc_s[1] * 10.0 + 5.0]]
+        #else:
+        #    loc = [[loc_s[0] * 10.0 - 5.0, loc_s[1] * 10.0 - 1.5], [loc_s[0] * 10.0 + 5.0, loc_s[1] * 10.0 - 1.5],
+        #       [loc_s[0] * 10.0 + 5.0, loc_s[1] * 10.0 + 1.5], [loc_s[0] * 10.0 - 5.0, loc_s[1] * 10.0 + 1.5]]
+        polygon_start = [[loc_s[0] * 10.0 - 5.0, loc_s[1] * 10.0 - 5.0], [loc_s[0] * 10.0 + 5.0, loc_s[1] * 10.0 - 5.0],
+               [loc_s[0] * 10.0 + 5.0, loc_s[1] * 10.0 + 5.0], [loc_s[0] * 10.0 - 5.0, loc_s[1] * 10.0 + 5.0]]
+        '''for idx, fires_hist in enumerate(env.fire_sim.fire_list):
+            fires = fires_hist[len(fires_hist) - 1]
             polygon_temp = list()
+            fire_lines_and_intersections = list()
             for idx2, pts in enumerate(polygon_start):
                 polygon_temp.append(pts)
-                poly_line = [pts, polygon_start[idx2+1]] if idx2+1<len(polygon_start) else [pts, polygon_start[0]]
+                poly_line = [pts, polygon_start[idx2 + 1]] if idx2 + 1 < len(polygon_start) else [pts, polygon_start[0]]
                 pt_list = list()
                 for idx3, fire_vertex in enumerate(fires):
-                    fire_line = [fire_vertex, fires[idx3+1]] if idx3+1<len(fires) else [fire_vertex, fires[0]]
-                    if env.fire_sim.intersect(poly_line, fire_line):
-                        pt_list.append(env.fire_sim.intersection_point(poly_line, fire_line))
-                pt_list.sort(key=lambda p: (p[0] - pts[0])**2 + (p[1] - pts[1])**2)
+                    fire_line = [fire_vertex, fires[idx3 + 1]] if idx3 + 1 < len(fires) else [fire_vertex, fires[0]]
+                    if env.fire_sim.intersect(poly_line[0], poly_line[1], fire_line[0], fire_line[1]):
+                        in_pt = [env.fire_sim.intersection_point(poly_line, fire_line)[0],
+                                 env.fire_sim.intersection_point(poly_line, fire_line)[1]]
+                        pt_list.append((in_pt, fire_line))
+                pt_list.sort(key=lambda p: (p[0][0] - pts[0]) ** 2 + (p[0][1] - pts[1]) ** 2)
                 for extra in pt_list:
-                    polygon_temp.append(extra)
+                    polygon_temp.append(extra[0])
+                    fire_lines_and_intersections.append(extra)
 
             fire_vertex_inside = list()
             for idx2, pts in enumerate(fires):
                 if env.fire_sim.inside_poly(polygon_start, pts):
                     fire_vertex_inside.append(pts)
 
-
             polygon_temp2 = list()
             for idx2, pts in enumerate(polygon_temp):
                 if idx2 == 0:
-                    idx_before = len(polygon_temp)-1
+                    idx_before = len(polygon_temp) - 1
                     idx_after = idx2 + 1
-                elif idx2 == len(polygon_temp)-1:
-                    idx_before = idx2-1
+                elif idx2 == len(polygon_temp) - 1:
+                    idx_before = idx2 - 1
                     idx_after = 0
                 else:
                     idx_before = idx2 - 1
                     idx_after = idx2 + 1
 
-                if (not env.fire_sim.inside_poly(fires, pts) or not env.fire_sim.inside_poly(fires, polygon_temp[idx_before])
+                if (not env.fire_sim.inside_poly(fires, pts) or not env.fire_sim.inside_poly(fires,
+                                                                                             polygon_temp[idx_before])
                         or not env.fire_sim.inside_poly(fires, polygon_temp[idx_after])):
                     polygon_temp2.append(pts)
 
             polygon_temp3 = list()
             for idx2, pts in enumerate(polygon_temp2):
-                next_idx = idx2+1 if idx2 < len(polygon_temp2)-1 else 0
+                next_idx = idx2 + 1 if idx2 < len(polygon_temp2) - 1 else 0
                 polygon_temp3.append(pts)
                 if env.fire_sim.inside_poly(fires, pts) and env.fire_sim.inside_poly(fires, polygon_temp2[next_idx]):
-                    dist_1 = (fire_vertex_inside[0][0]-pts[0])**2 + (fire_vertex_inside[0][1]-pts[1])**2
-                    dist_2 = (fire_vertex_inside[len(fire_vertex_inside)-1][0]-pts[0])**2 + \
-                        (fire_vertex_inside[len(fire_vertex_inside) - 1][1] - pts[1]) ** 2
-                    #if fire_vertex_inside[0]
+                    direction_for = True
+                    for idx3, pts2 in enumerate(fire_lines_and_intersections):
 
+                        dif_mag = math.sqrt((pts2[0][0] - pts[0]) ** 2 + (pts2[0][1] - pts[1]) ** 2)
+                        if dif_mag < 0.0000001:
 
+                            if pts2[1][0] == fire_vertex_inside[0] or pts2[1][1] == fire_vertex_inside[0]:
+                                direction_for = True
+                                break
+                            elif pts2[1][0] == fire_vertex_inside[len(fire_vertex_inside) - 1] or \
+                                    pts2[1][1] == fire_vertex_inside[len(fire_vertex_inside) - 1]:
+                                direction_for = False
+                                break
+                    if direction_for is True:
+                        for ii in fire_vertex_inside:
+                            if ii not in polygon_temp2: polygon_temp3.append(ii)
+                    else:
+                        for ii in reversed(fire_vertex_inside):
+                            if ii not in polygon_temp2: polygon_temp3.append(ii)
+            polygon_start = polygon_temp3'''
+        #polygon_start = loc
+        env.suppressant_obstacles.update({loc_c: [polygon_start, (duration, time)]})
+        env.obstacles.append(polygon_start)
 
-
-
-            # Now we need to gather all vertices of fire that are inside the polygon and remove vertices from shape that
-            # are inside the fire (except for ones proceeding or preceeding vertices that are outside the fire)
-            ''' 
-            for idx2, fire_vertex in enumerate(fires):
-                
-                if env.fire_sim.inside_poly(polygon_start, fire_vertex):
-                    inside_vertexes.append(fire_vertex)
-                line = [fire_vertex, fires[idx2+1]] if idx2+1<len(fires) else [fire_vertex, fires[0]]
-
-                for idx, pts in enumerate(loc[1]):
-                    line_box = [pts, loc[1][idx + 1]] if idx + 1 < len(loc[1]) else [pts, loc[1][0]]
-
-                if env.fire_sim.inside_poly(loc[1], line[0]) or env.fire_sim.inside_poly(loc[1], line[1]):
-                    inside_lines.append(line)
-
-        for lines in inside_lines:
-
-                if env.fire_sim.intersect(lines, line_box):
-                    env.fire_sim.intersection_point(lines, line_box)'''
-
-
-
-
-
-
-
-
-        # SECOND, determine contour of fires that exist within the obstacle, cutting off at cell edges
-        # THIRD, create two shapes divided by contour, then use centroid of each to see which is inside the fire and
-            # which is not inside
-        # FOURTH, add the shape that's not inside the fire to the obstacle list and modify its associated timer
 
     # Provides display vectors for triangle representation of self
     def display_loc(self, params):
         center = (self.state_truth[0] - 1, params.height - (self.state_truth[1] - 1))
+        #print(center)
+        goal = (self.goal[0] - 1, params.height - (self.goal[1] - 1))
+        #print(goal)
+        #input('wait..')
         rot = numpy.array([[math.cos(self.state_truth[2]), -math.sin(self.state_truth[2])],
                            [math.sin(self.state_truth[2]), math.cos(self.state_truth[2])]])
         rot1 = numpy.matmul(rot, params.FRONT_VECTOR)
@@ -176,10 +188,12 @@ class Agent(object):
         rot3 = numpy.matmul(rot, params.BACK_TOP_VECT)
 
         loc_center_screen = (params.WIDTH * center[0] + params.WIDTH / 2, params.HEIGHT * center[1] - params.HEIGHT / 2)
+        goal_center_screen = (params.WIDTH * goal[0] + params.WIDTH / 2, params.HEIGHT * goal[1] - params.HEIGHT / 2)
+
         vec1 = (loc_center_screen[0] + rot1[0], loc_center_screen[1] - rot1[1])
         vec2 = (loc_center_screen[0] + rot2[0], loc_center_screen[1] - rot2[1])
         vec3 = (loc_center_screen[0] + rot3[0], loc_center_screen[1] - rot3[1])
-        return [vec1, vec2, vec3]
+        return [[vec1, vec2, vec3], [loc_center_screen, goal_center_screen]]
 
 
 class Fleet(object):
@@ -200,8 +214,8 @@ class Fleet(object):
         self.agents[agent.name] = agent
         return
 
-    def allocate(self, env, params):
-        allocation_function(self, params, env)
+    def allocate(self, env, params, time):
+        allocation_function(self, params, env, time)
         #for i in self.agents:
         #    self.agents[i].goal = [6.0, 8.0, math.pi * 3.0 / 2.0]
 
@@ -211,28 +225,13 @@ class Fleet(object):
             trigger1 = True if self.agents[i].goal != self.agents[i].prev_goal else False
             if trigger1 is False:
                 region = self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal, time)
-                #print(region)
                 trigger2 = False if region == self.agents[i].region else True
                 self.agents[i].update_region(region)
             else:
-                # print(self.agents[i].state_belief)
                 self.agents[i].update_region(self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal, time))
-                #print(self.region_interpreter(self.agents[i].state_belief, self.agents[i].goal))
                 trigger2 = True
-            #if time > 21:
-                #print(self.agents[i].region)
-                #print(i)
-                #print(self.agents[i].state_belief)
-                #print(self.agents[i].state_truth)
-                #print(self.agents[i].goal)
-                #print(trigger1)
-                #print(trigger2)
-
-                #input('wait...')
 
             if trigger1 is True or trigger2 is True:
-                #print(self.agents[i].state_belief)
-                #print(self.agents[i].goal)
                 hand = self.directory_interpreter(self.agents[i].state_belief, self.agents[i].goal, time)
                 self.agents[i].ctrler = hand.TulipStrategy()
                 #print(self.agents[i].region)
@@ -244,20 +243,28 @@ class Fleet(object):
                 # print(output["loc"])
             # if time hasn't exceeded the original pause time for the agent plus the interval, don't update agent
             # TODO reimplement
-            '''if time - self.agents[i].pause_time < params.stop_interval:
-                print('skipped state output below')
-                print(time)
-                print(self.agents[i].pause_time)
+            if time - self.agents[i].pause_time < params.stop_interval:
                 self.agents[i].control_inputs = (0.0, 0.0)
-                continue'''
+                continue
 
             # gather current location and fire status
             loc = (round(self.agents[i].state_belief[0]), round(self.agents[i].state_belief[1]))
-            fire = 1 if env.cells[loc].vertex_pts[0] in env.fire_abstract_total else 0
+            fire = 0
+            for pts in env.cells[loc].vertex_pts:
+                if pts in env.fire_abstract_total:
+                    fire = 1
+            if loc == (2.0, 2.0):
+                fire = 0
 
             # stop signal logic for updating an agent TODO fix stop signal variable
-            stop_signal = 0  # if uniform(0,1) > 1 - params.stop_fail else 0
-            self.agents[i].pause_time = time if stop_signal == 1 else -params.stop_interval
+            if uniform(0,1) < 0.01:
+                stop_signal = 1
+            elif self.agents[i].prev_stop == 1 and self.prev_fire == 1:
+                stop_signal = 1
+            else:
+                stop_signal = 0
+
+            self.agents[i].pause_time = -params.stop_interval
 
             # move synthesized controller given updates on environment (need to modify so that only two inputs used if
             # other controller is used)
@@ -265,11 +272,15 @@ class Fleet(object):
                 output = self.agents[i].ctrler.move(fire, self.agents[i].sync_signal, stop_signal)
             else:
                 output = self.agents[i].ctrler.move(fire, stop_signal)
+
+            self.prev_stop = stop_signal
+            self.prev_fire = fire
             #print(output)
             # print(output["loc"])
             # update controller outputs for angle to reflect true values
             values = re.findall('\d+', output["loc"])
 
+            ori = values[2]
             if int(values[2]) == 1:
                 values[2] = math.pi / 2.0
             elif int(values[2]) == 2:
@@ -282,12 +293,13 @@ class Fleet(object):
             # update various belief states and previous states, plus desired states and control inputs
             self.agents[i].prev_state = self.agents[i].state_belief
             self.agents[i].desired_state = (float(values[0]), float(values[1]), values[2])
+            if self.agents[i].prev_state == self.agents[i].desired_state:
+                self.agents[i].pause_time = time
             #print(self.agents[i].prev_state)
             #print(self.agents[i].desired_state)
 
             # find control inputs from graph... TODO: FIX THIS PORTION
             for n in self.graph.graph:
-                # print(n)
                 # print(self.agents[i].prev_state)
                 if ((abs(self.agents[i].prev_state[0] - n[0]) < 0.00001 or abs(self.agents[i].prev_state[0] - 2 * math.pi - n[0]) < 0.00001) and
                         (abs(self.agents[i].prev_state[1] - n[1]) < 0.00001 or abs(
@@ -307,6 +319,11 @@ class Fleet(object):
             self.agents[i].control_inputs = (control_in[0], control_in[1])
             # print(self.agents[i].control_inputs)
 
+            # update goal index and base index to agent's belief (done here because we are assuming the UAV makes it,
+            # and that the controller move was enacted correctly
+            self.agents[i].goal_ind = 1 if (output["GoalPos"] and self.agents[i].sync_signal_prev) else 0
+            self.agents[i].base = 1 if output["Base"] else 0
+
             base = self.agents[i].base
             goal = self.agents[i].goal_ind if base == 0 else 0
             # 4. Update water controller
@@ -314,42 +331,55 @@ class Fleet(object):
             self.agents[i].wtr_output = self.agents[i].wtr_ctrler.move(base, self.agents[i].sync_signal, goal)
             val = re.findall('\d+', self.agents[i].wtr_output["loc"])
             # add water dropped by UAV to the appropriate cell
-            #if wtr_out_prev["loc"] != self.agents[i].wtr_output["loc"]:
-            #    val2 = re.findall('\d+', wtr_out_prev["loc"])
-            #    env.cells[
-            #        (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum = \
-            #        env.cells[
-            #            (round(self.agents[i].state_truth[0]), round(self.agents[i].state_truth[1]))].water_accum + \
-            #        (float(val2[0]) - float(val[0]))/100.0*params.max_water_capacity
+            if wtr_out_prev["loc"] != self.agents[i].wtr_output["loc"]:
+                # Determine how much water was dropped
+                val2 = re.findall('\d+', wtr_out_prev["loc"])
+                amount_dumped = int(val2[0]) - int(val[0])
+                if amount_dumped == -100:
+                    #print(i + ' Refilled')
+                    duration_sup = 0.0
+                    self.agents[i].pause_time = time
+                    drop_ind = False
+                else:
+                    duration_sup = params.burn_through/3.0
+                    drop_ind = True
+
+                # Drop suppressant using built in agent function
+                loc_c = (values[0], values[1])
+                loc_s = (float(values[0]), float(values[1]))
+                if drop_ind:
+                    self.agents[i].drop_suppresant_loc(loc_c, loc_s, duration_sup*60.0, env, time, int(ori), params)
 
             self.agents[i].water_level = int(val[0])  # not necessary I think
-            #print(self.agents[i].water_level)
-
-            # update goal index and base index to agent's belief (done here because we are assuming the UAV makes it,
-            # and that the controller move was enacted correctly
-            self.agents[i].goal_ind = 1 if (output["GoalPos"] and self.agents[i].sync_signal_prev) else 0
-            self.agents[i].base = 1 if output["Base"] else 0
 
         return
 
-    def update(self, env, params, time_step, force_endpoint=False):
+    def update(self, env, params, time_step, force_endpoint=True):
 
         # Layout:
         for i in self.agents:
-            # Propagate state forward for now (no environmental inputs at the moment)
-            self.agents[i].state_truth = self.agents[i].dynamic_model.integrate_state(time_step,
-                                                                                      self.agents[i].state_truth,
-                                                                                      self.agents[i].control_inputs,
-                                                                                      (0.0, 0.0, 0.0))
-
-            # 2. Update the belief of the agent (for this purpose, this is tied directly to the output of the function)
-            if self.agents[i].state_truth[2] < 0.0:
-                state2 = math.fmod(self.agents[i].state_truth[2], 2.0 * math.pi)
-                state2 = 2.0 * math.pi + state2
+            #print(i)
+            if force_endpoint is True:
+                key = (self.agents[i].state_belief[0], self.agents[i].state_belief[1], self.agents[i].state_belief[2])
+                for child in self.graph.graph[key].children:
+                    if [self.agents[i].control_inputs[0], self.agents[i].control_inputs[1]] == self.graph.graph[key].children[child][0]:
+                        self.agents[i].state_truth = [child[0], child[1], child[2]]
+                        self.agents[i].state_belief = [child[0], child[1], child[2]]
+                        break
             else:
-                state2 = math.fmod(self.agents[i].state_truth[2], 2.0 * math.pi)
+                # Propagate state forward for now (no environmental inputs at the moment)
+                self.agents[i].state_truth = self.agents[i].dynamic_model.integrate_state(time_step,
+                                                                                          self.agents[i].state_truth,
+                                                                                          self.agents[i].control_inputs,
+                                                                                          (0.0, 0.0, 0.0))
+                # 2. Update the belief of the agent (for this purpose, this is tied directly to the output of the function)
+                if self.agents[i].state_truth[2] < 0.0:
+                    state2 = math.fmod(self.agents[i].state_truth[2], 2.0 * math.pi)
+                    state2 = 2.0 * math.pi + state2
+                else:
+                    state2 = math.fmod(self.agents[i].state_truth[2], 2.0 * math.pi)
 
-            self.agents[i].state_belief = [self.agents[i].state_truth[0], self.agents[i].state_truth[1], state2]
+                self.agents[i].state_belief = [self.agents[i].state_truth[0], self.agents[i].state_truth[1], state2]
 
     # returns the module for accessing the class (use return.myClass())
     def directory_interpreter(self, state, goal, time):

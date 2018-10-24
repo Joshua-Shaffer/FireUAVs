@@ -311,7 +311,7 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
     # Create the additional environmental variables, including signal for w region next to goal
     env_auto_vars = {'fire'}#'StopSignal',
     if current_horizon == 1 or check_hori is None:
-        env_auto_vars |= {'SyncSignal', 'SyncVert', 'SyncHori'}
+        env_auto_vars |= {'SyncHori'}#, 'SyncSignal', 'SyncVert'}
         #env_auto_vars |= {'SH1', 'SH2', 'SHb'}#, 'SV1', 'SV2', 'SVb', 'S1', 'S2', 'Sb'}
 
     # Create the environment specifications, including progress related to sync signal next to goal
@@ -320,10 +320,10 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
     env_auto_prog = {'!fire'}#'!StopSignal',
     #if current_horizon == 1 or check_hori is None:
         #env_auto_prog |= {'SyncSignal||SyncVert||SyncHori'}
-    if current_horizon == 1 or check_hori is None:
-        env_auto_safe |= {'SyncSignal->(!SyncVert && !SyncHori)'}
-        env_auto_safe |= {'SyncVert->(!SyncSignal && !SyncHori)'}
-        env_auto_safe |= {'SyncHori->(!SyncSignal && !SyncVert)'}
+    #if current_horizon == 1 or check_hori is None:
+        #env_auto_safe |= {'SyncSignal->(!SyncVert && !SyncHori)'}
+        #env_auto_safe |= {'SyncVert->(!SyncSignal && !SyncHori)'}
+        #env_auto_safe |= {'SyncHori->(!SyncSignal && !SyncVert)'}
 
         # Create the specification for [](SyncHori->(SyncHori U Goal))
         #env_auto_safe |= {'(SH1&&!SH2&&!SHb)||(!SH1&&SH2&&!SHb)||(!SH1&&!SH2&&SHb)'}
@@ -422,8 +422,8 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
 
             if statement_hori and statement_vert:
 
-                sys_auto_vars |= {'Sync_Hori_extra', 'Sync_Vert_extra', 'Sync_extra'}#, 'SH_proxy', 'SV_proxy', 'S_proxy'}#, 'Sync_vert_prev', 'Sync_hori_prev'}
-                sys_auto_init |= {'Sync_Hori_extra', 'Sync_Vert_extra', 'Sync_extra'}#, '!SH_proxy', '!SV_proxy', '!S_proxy'}
+                sys_auto_vars |= {'Sync_Hori_extra'}#, 'Sync_Vert_extra', 'Sync_extra'}#, 'SH_proxy', 'SV_proxy', 'S_proxy'}#, 'Sync_vert_prev', 'Sync_hori_prev'}
+                sys_auto_init |= {'Sync_Hori_extra'}#, 'Sync_Vert_extra', 'Sync_extra'}#, '!SH_proxy', '!SV_proxy', '!S_proxy'}
 
                 # Proxy variables and rules
                 #sys_auto_safe |= {'(!SH_proxy&&!SV_proxy&&!S_proxy)||(SH_proxy&&!SV_proxy&&!S_proxy)||' +
@@ -440,7 +440,7 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
                 #sys_auto_safe |= {'(X Sync_vert_prev <-> SyncVert) && (X Sync_hori_prev <-> SyncHori)'}
 
                 sys_auto_safe |= {'((!SyncHori)&& X Sync_Hori_extra) || ((X (Sync_Hori_extra) <-> goalPos)) || (Sync_Hori_extra && !SyncHori)'}#{'(X (Sync_Hori_extra) <-> goalPos) || (Sync_Hori_extra && !SyncHori)'}
-                sys_auto_safe |= {'((!SyncVert)&& X Sync_Vert_extra) || ((X (Sync_Vert_extra) <-> goalPos)) || (Sync_Vert_extra && !SyncVert)'}
+                #sys_auto_safe |= {'((!SyncVert)&& X Sync_Vert_extra) || ((X (Sync_Vert_extra) <-> goalPos)) || (Sync_Vert_extra && !SyncVert)'}
                 #sys_auto_safe |= {'(X (Sync_extra) <-> goalPos) || (Sync_extra && !S_proxy)'}#{'(X (Sync_extra) <-> goalPos) || (Sync_extra && !SyncSignal)'}
                 #stop_condition1 = '(!(X(' + sync_hori_cond + '))&&!(' + sync_hori_cond + '))'
                 #stop_condition2 = '(!(X(' + sync_vert_cond + '))&&!(' + sync_vert_cond + '))'
@@ -450,10 +450,10 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
                 #sys_auto_safe |= {'(!(' + stop_condition_all + '&&' + stop_condition1 + '&&' \
                 #                  + stop_condition2 + '&&' + stop_condition3 + '))->(X(sys_actions != "Stop"))'}
                 sys_auto_safe |= {'X(sys_actions != "Stop")'}
-                sys_auto_safe |= {'(' + sync_hori_cond + ')->((X(sys_actions = "goHori")) && (sys_actions = "goHori"))'}
+                #sys_auto_safe |= {'(' + sync_hori_cond + ')->((X sys_actions = "goHori") && (sys_actions = "goHori"))'}
                 #sys_auto_safe |= {'(' + sync_vert_cond + ')->((X(sys_actions = "goVert")) && (sys_actions = "goVert"))'}
                 sys_auto_prog |= {sync_spec_hori}
-                sys_auto_prog |= {sync_spec_vert}
+                #sys_auto_prog |= {sync_spec_vert}
                 #sys_auto_prog |= {sync_spec}
 
             '''elif statement_vert:
@@ -477,6 +477,10 @@ def create_w_specs_all_init_cond(current_horizon, x_goal_loc, y_goal_loc, w_part
                 sys_auto_safe |= {stop_condition + '->(X(sys_actions = "Stop"))'}
                 sys_auto_safe |= {'(!' + stop_condition + ')->(X(sys_actions != "Stop"))'}
                 sys_auto_prog = {sync_spec}'''
+
+            #if statement_vert:
+
+
 
             # Spec just states that the sync signal implies goal position is there
 

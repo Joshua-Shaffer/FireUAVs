@@ -6,6 +6,7 @@
 .idea/workspace.xml
 .idea/inspectionProfiles/Project_Default.xml
 W_partitions/*.csv
+ctrls/
 ctrls/Goal2_2/*.py
 ctrls/Goal2_3/*.py
 ctrls/Goal2_4/*.py
@@ -80,3 +81,7 @@ Multi_vehicle_setup.py
 mavlink_hub.py
 Goal2_2.csv
 DroneKit_simulator_MAVProxy
+Extra_fornow/
+Old_test_modules/
+Revised_simulation/
+W_Partitions/

@@ -11,13 +11,14 @@ osascript -e 'tell app "Terminal"
 end tell'
 
 osascript -e 'tell app "Terminal"
-    do script "cd Documents/GitHub/FireUAVs;
+    do script "cd Documents/GitHub/FireUAVs/On-board_UAV;
     python OnBoard_controller.py --vehicle_id 1"
 end tell'
 
 osascript -e 'tell app "Terminal"
-    do script "cd Documents/GitHub/FireUAVs;
+    do script "cd Documents/GitHub/FireUAVs/On-board_UAV;
     python OnBoard_controller.py --vehicle_id 2"
 end tell'
 
-cd ~/Documents/GitHub/FireUAVs
+cd ~/Documents/GitHub/FireUAVs/Off-board_ground
+python OffBoard_simulator.py --vehicle_tot_number 2
