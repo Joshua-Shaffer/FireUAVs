@@ -60,7 +60,7 @@ TCP connection section:
     we will need to change accordingly with the WIFI or radio setup chosen for the drones
 """
 TCP_IP = '127.0.0.1'
-TCP_PORT = 5005 + (int(vehicle_id) - 1)*10
+TCP_PORT = 5005 + (int(vehicle_id)-253- 1)*10# - 1)*10
 print(TCP_PORT)
 time.sleep(10)
 BUFFER_SIZE = 1024
@@ -84,15 +84,15 @@ if not connection_string:
     #import dronekit_sitl
     #sitl = dronekit_sitl.start_default()
     #print(sitl)
-    connection_string = 'tcp:127.0.0.1:57' + str(60 + (int(vehicle_id)-1) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
+    connection_string = 'tcp:127.0.0.1:57' + str(60 + (int(1)-1) * 10)  #vehicle_id)-1) * 10)  # '127.0.0.1:145' + str(50 + (i)*10)
     print('Connecting to vehicle on: %s' % connection_string)
-    vehicle = connect(connection_string, wait_ready=True, baud=115200)
+    vehicle = connect(connection_string, wait_ready=True, baud=115200, source_system=vehicle_id)
     loc_true_origin = get_location_metres(vehicle.location.global_frame, SCALE * float(data[4]), SCALE * float(data[5]))
     origin = loc_true_origin
     print('Calculated origin location')
     print(origin)
 
-if int(vehicle_id) == 1:
+if int(vehicle_id) == 254: #1:
     print('Sending origin to base!')
     s.send(str(origin.lat) + ' ' + str(origin.lon) + ' ' + str(origin.alt))
 """'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''"""
